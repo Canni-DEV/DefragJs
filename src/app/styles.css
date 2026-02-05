@@ -1,0 +1,136 @@
+:root {
+  color-scheme: light;
+  --bg: #0f1318;
+  --panel: #161c24;
+  --panel-border: #26303f;
+  --text: #e6e9ef;
+  --accent: #5fd3a8;
+  --warn: #f2c94c;
+  --danger: #ff6b6b;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: radial-gradient(1400px 900px at 10% 10%, #1b2533, #0f1318);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+.ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  pointer-events: auto;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9fb2cc;
+}
+
+.panel label {
+  display: block;
+  font-size: 12px;
+  color: #a9b3c7;
+  margin-bottom: 6px;
+}
+
+.panel input[type='file'],
+.panel select,
+.panel button {
+  font-family: var(--mono);
+  background: #0d1117;
+  color: var(--text);
+  border: 1px solid #2b3648;
+  border-radius: 8px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.panel button {
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.panel button:hover {
+  background: #111826;
+}
+
+.panel .stack {
+  display: grid;
+  gap: 8px;
+}
+
+.file-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 260px;
+}
+
+.map-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 260px;
+}
+
+.debug-panel {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  width: 260px;
+}
+
+.hud {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  padding: 10px 14px;
+  background: rgba(10, 14, 18, 0.6);
+  border: 1px solid rgba(90, 110, 140, 0.4);
+  border-radius: 10px;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+
+.hud .time {
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.hud .splits {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #c2cad8;
+  display: grid;
+  gap: 2px;
+}
+
+.canvas-container {
+  position: fixed;
+  inset: 0;
+}

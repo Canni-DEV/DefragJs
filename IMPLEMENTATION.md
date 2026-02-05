@@ -215,9 +215,9 @@ Criterios:
 
 Checklist:
 
-- Pk3Archive lee y lista entries.
-- VirtualFS mount/resolution ok.
-- UI permite cargar 1..N pk3.
+- [x] Pk3Archive lee y lista entries.
+- [x] VirtualFS mount/resolution ok.
+- [x] UI permite cargar 1..N pk3.
 
 #### 4.2 BSP Parser minimo (render + entities + metadata)
 
@@ -236,10 +236,10 @@ Criterios:
 
 Checklist:
 
-- Parse header/lumps.
-- Entities lump parseable.
-- Lumps geometry ok.
-- Lumps colision guardados en BspData.
+- [x] Parse header/lumps.
+- [x] Entities lump parseable.
+- [x] Lumps geometry ok.
+- [x] Lumps colision guardados en BspData.
 
 #### 4.3 Tessellation de patches + triangulacion
 
@@ -262,9 +262,9 @@ Criterios:
 
 Checklist:
 
-- Triangulacion polygon/mesh.
-- Tessellation patch configurable.
-- Output consistente (positions/uv/indices).
+- [x] Triangulacion polygon/mesh.
+- [x] Tessellation patch configurable.
+- [x] Output consistente (positions/uv/indices).
 
 #### 4.4 Render moderno (Three.js)
 
@@ -282,9 +282,9 @@ Retorna object3d contenedor. Debug wireframe toggle.
 
 Checklist:
 
-- Render de mapa completo.
-- Batching por groups/material.
-- UI wireframe/debug.
+- [x] Render de mapa completo.
+- [x] Batching por groups/material.
+- [x] UI wireframe/debug.
 
 #### 4.5 Colision fase 1: TriMeshTraceWorld.traceBox (MVP estable)
 
@@ -311,10 +311,10 @@ Criterio:
 
 Checklist:
 
-- TriMesh construido desde faces (incluye patches).
-- Broadphase funcionando.
-- traceBox devuelve fraction/endPos/normal/startSolid.
-- Walkable sin jitter extremo.
+- [x] TriMesh construido desde faces (incluye patches).
+- [x] Broadphase funcionando.
+- [x] traceBox devuelve fraction/endPos/normal/startSolid.
+- [x] Walkable sin jitter extremo.
 
 #### 4.6 Movimiento fase 1: Pmove VQ3 (BBox Q3 desde el inicio)
 
@@ -335,10 +335,10 @@ Algoritmo:
 
 Checklist:
 
-- Player bbox Q3 aplicado.
-- Strafe/airmove basico ok.
-- StepSlideMove implementado.
-- Jump/gravity ok.
+- [x] Player bbox Q3 aplicado.
+- [x] Strafe/airmove basico ok.
+- [x] StepSlideMove implementado.
+- [x] Jump/gravity ok.
 
 #### 4.7 GameLoop determinista: FixedTimestep
 
@@ -351,9 +351,9 @@ Tareas:
 
 Checklist:
 
-- Fixed timestep activo.
-- `UserCmd.msec` consistente.
-- Movimiento no depende de FPS.
+- [x] Fixed timestep activo.
+- [x] `UserCmd.msec` consistente.
+- [x] Movimiento no depende de FPS.
 
 ---
 
@@ -375,9 +375,9 @@ Al cambiar modo:
 
 Checklist:
 
-- Selector VQ3/CPM funcional.
-- Cambian params (feel perceptible).
-- No rompe determinismo.
+- [x] Selector VQ3/CPM funcional.
+- [x] Cambian params (feel perceptible).
+- [x] No rompe determinismo.
 
 #### 5.2 Entities + Defrag systems (marker-based)
 
@@ -404,12 +404,12 @@ HUD:
 
 Checklist:
 
-- Entities parseadas y listadas.
-- TriggerSystem marker-based.
-- Timer start/stop.
-- Checkpoints splits.
-- Teleport marker-based.
-- HUD visible.
+- [x] Entities parseadas y listadas.
+- [x] TriggerSystem marker-based.
+- [x] Timer start/stop.
+- [x] Checkpoints splits.
+- [x] Teleport marker-based.
+- [x] HUD visible.
 
 ---
 
