@@ -24,6 +24,9 @@ export class TriggerSystem {
     const entered: TriggerVolume[] = [];
     for (let i = 0; i < this.triggers.length; i += 1) {
       const trigger = this.triggers[i];
+      if (!trigger) {
+        continue;
+      }
       const isInside = trigger.bounds.intersects(playerBounds);
       const wasInside = this.active.has(i);
       if (isInside && !wasInside) {
@@ -99,8 +102,11 @@ function parseVec3(value: string | undefined): Vec3 | null {
     return null;
   }
   const parts = value.trim().split(/\s+/).map((v) => Number(v));
-  if (parts.length < 3 || parts.some((v) => Number.isNaN(v))) {
+  const x = parts[0];
+  const y = parts[1];
+  const z = parts[2];
+  if (x === undefined || y === undefined || z === undefined || Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
     return null;
   }
-  return new Vec3(parts[0], parts[1], parts[2]);
+  return new Vec3(x, y, z);
 }

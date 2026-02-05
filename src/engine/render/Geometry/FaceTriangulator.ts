@@ -56,6 +56,9 @@ export class FaceTriangulator {
     const base = batch.positions.length / 3;
     for (let i = 0; i < face.numVertices; i += 1) {
       const v = vertices[face.vertexIndex + i];
+      if (!v) {
+        continue;
+      }
       batch.positions.push(v.position.x, v.position.y, v.position.z);
       batch.normals.push(v.normal.x, v.normal.y, v.normal.z);
       batch.uvs.push(v.texCoord.x, v.texCoord.y);
@@ -74,6 +77,9 @@ export class FaceTriangulator {
     const base = batch.positions.length / 3;
     for (let i = 0; i < face.numVertices; i += 1) {
       const v = vertices[face.vertexIndex + i];
+      if (!v) {
+        continue;
+      }
       batch.positions.push(v.position.x, v.position.y, v.position.z);
       batch.normals.push(v.normal.x, v.normal.y, v.normal.z);
       batch.uvs.push(v.texCoord.x, v.texCoord.y);
@@ -85,6 +91,9 @@ export class FaceTriangulator {
       const a = meshVerts[i];
       const b = meshVerts[i + 1];
       const c = meshVerts[i + 2];
+      if (a === undefined || b === undefined || c === undefined) {
+        continue;
+      }
       batch.indices.push(base + a, base + b, base + c);
     }
   }
@@ -97,7 +106,15 @@ export class FaceTriangulator {
   ): void {
     const control: BspVertex[] = [];
     for (let i = 0; i < face.numVertices; i += 1) {
-      control.push(vertices[face.vertexIndex + i]);
+      const v = vertices[face.vertexIndex + i];
+      if (!v) {
+        continue;
+      }
+      control.push(v);
+    }
+    const expected = face.size[0] * face.size[1];
+    if (control.length < 9 || control.length < expected) {
+      return;
     }
     const patch = PatchTessellator.tessellate(control, face.size[0], face.size[1], patchSubdiv);
     const base = batch.positions.length / 3;

@@ -31,8 +31,14 @@ export class PatchTessellator {
         for (let cy = 0; cy < 3; cy += 1) {
           for (let cx = 0; cx < 3; cx += 1) {
             const idx = (py * 2 + cy) * width + (px * 2 + cx);
-            patchControl.push(control[idx]);
+            const v = control[idx];
+            if (v) {
+              patchControl.push(v);
+            }
           }
+        }
+        if (patchControl.length < 9) {
+          continue;
         }
 
         for (let y = 0; y <= steps; y += 1) {
@@ -50,9 +56,9 @@ export class PatchTessellator {
             rowUv.push(uv);
           }
           for (let x = 0; x <= steps; x += 1) {
-            const pos = rowPos[x];
-            const norm = rowNorm[x];
-            const uv = rowUv[x];
+            const pos = rowPos[x]!;
+            const norm = rowNorm[x]!;
+            const uv = rowUv[x]!;
             positions.push(pos.x, pos.y, pos.z);
             normals.push(norm.x, norm.y, norm.z);
             uvs.push(uv.x, uv.y);
@@ -82,9 +88,9 @@ export class PatchTessellator {
     ty: number,
     field: 'position' | 'normal'
   ): Vec3 {
-    const row0 = PatchTessellator.evalBezierVec3(control[0][field], control[1][field], control[2][field], tx);
-    const row1 = PatchTessellator.evalBezierVec3(control[3][field], control[4][field], control[5][field], tx);
-    const row2 = PatchTessellator.evalBezierVec3(control[6][field], control[7][field], control[8][field], tx);
+    const row0 = PatchTessellator.evalBezierVec3(control[0]![field], control[1]![field], control[2]![field], tx);
+    const row1 = PatchTessellator.evalBezierVec3(control[3]![field], control[4]![field], control[5]![field], tx);
+    const row2 = PatchTessellator.evalBezierVec3(control[6]![field], control[7]![field], control[8]![field], tx);
     return PatchTessellator.evalBezierVec3(row0, row1, row2, ty);
   }
 
@@ -94,9 +100,9 @@ export class PatchTessellator {
     ty: number,
     field: 'texCoord'
   ): { x: number; y: number } {
-    const row0 = PatchTessellator.evalBezierVec2(control[0][field], control[1][field], control[2][field], tx);
-    const row1 = PatchTessellator.evalBezierVec2(control[3][field], control[4][field], control[5][field], tx);
-    const row2 = PatchTessellator.evalBezierVec2(control[6][field], control[7][field], control[8][field], tx);
+    const row0 = PatchTessellator.evalBezierVec2(control[0]![field], control[1]![field], control[2]![field], tx);
+    const row1 = PatchTessellator.evalBezierVec2(control[3]![field], control[4]![field], control[5]![field], tx);
+    const row2 = PatchTessellator.evalBezierVec2(control[6]![field], control[7]![field], control[8]![field], tx);
     return PatchTessellator.evalBezierVec2(row0, row1, row2, ty);
   }
 

@@ -18,6 +18,9 @@ export class VirtualFS {
   readFile(path: string): Uint8Array | null {
     for (let i = this.mounts.length - 1; i >= 0; i -= 1) {
       const mount = this.mounts[i];
+      if (!mount) {
+        continue;
+      }
       const data = mount.archive.read(path);
       if (data) {
         return data;

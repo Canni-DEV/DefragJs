@@ -34,12 +34,40 @@ export class TriMeshTraceWorld implements ITraceWorld {
       const positions = batch.positions;
       const indices = batch.indices;
       for (let i = 0; i < indices.length; i += 3) {
-        const ia = indices[i] * 3;
-        const ib = indices[i + 1] * 3;
-        const ic = indices[i + 2] * 3;
-        const a = new Vec3(positions[ia], positions[ia + 1], positions[ia + 2]);
-        const b = new Vec3(positions[ib], positions[ib + 1], positions[ib + 2]);
-        const c = new Vec3(positions[ic], positions[ic + 1], positions[ic + 2]);
+        const iaIndex = indices[i];
+        const ibIndex = indices[i + 1];
+        const icIndex = indices[i + 2];
+        if (iaIndex === undefined || ibIndex === undefined || icIndex === undefined) {
+          continue;
+        }
+        const ia = iaIndex * 3;
+        const ib = ibIndex * 3;
+        const ic = icIndex * 3;
+        const ax = positions[ia];
+        const ay = positions[ia + 1];
+        const az = positions[ia + 2];
+        const bx = positions[ib];
+        const by = positions[ib + 1];
+        const bz = positions[ib + 2];
+        const cx = positions[ic];
+        const cy = positions[ic + 1];
+        const cz = positions[ic + 2];
+        if (
+          ax === undefined ||
+          ay === undefined ||
+          az === undefined ||
+          bx === undefined ||
+          by === undefined ||
+          bz === undefined ||
+          cx === undefined ||
+          cy === undefined ||
+          cz === undefined
+        ) {
+          continue;
+        }
+        const a = new Vec3(ax, ay, az);
+        const b = new Vec3(bx, by, bz);
+        const c = new Vec3(cx, cy, cz);
         const normal = Vec3.sub(new Vec3(), b, a).cross(Vec3.sub(new Vec3(), c, a)).normalize();
         const triMin = new Vec3(
           Math.min(a.x, b.x, c.x),

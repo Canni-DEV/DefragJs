@@ -7,20 +7,24 @@ export class EntityParser {
     const len = text.length;
 
     const skipWhitespace = (): void => {
-      while (i < len && /\s/.test(text[i])) {
+      while (i < len) {
+        const ch = text.charAt(i);
+        if (!/\s/.test(ch)) {
+          break;
+        }
         i += 1;
       }
     };
 
     const readQuoted = (): string => {
       skipWhitespace();
-      if (text[i] !== '"') {
+      if (text.charAt(i) !== '"') {
         return '';
       }
       i += 1;
       let out = '';
-      while (i < len && text[i] !== '"') {
-        out += text[i];
+      while (i < len && text.charAt(i) !== '"') {
+        out += text.charAt(i);
         i += 1;
       }
       i += 1;
@@ -32,7 +36,7 @@ export class EntityParser {
       if (i >= len) {
         break;
       }
-      if (text[i] !== '{') {
+      if (text.charAt(i) !== '{') {
         i += 1;
         continue;
       }
@@ -40,7 +44,7 @@ export class EntityParser {
       const props: Record<string, string> = {};
       while (i < len) {
         skipWhitespace();
-        if (text[i] === '}') {
+        if (text.charAt(i) === '}') {
           i += 1;
           break;
         }

@@ -23,6 +23,9 @@ export class EntityWorld {
 
   findFirstByClass(classname: string): Q3Entity | null {
     const list = this.byClass.get(classname);
-    return list && list.length > 0 ? list[0] : null;
+    if (!list || list.length === 0) {
+      return null;
+    }
+    return list[0] ?? null;
   }
 }

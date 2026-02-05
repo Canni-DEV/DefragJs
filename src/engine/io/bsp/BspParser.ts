@@ -27,25 +27,31 @@ export class BspParser {
 
     const header: BspHeader = { magic, version, lumps };
 
-    const entities = BspParser.readEntities(view, header.lumps[BSP_LUMPS.ENTITIES]);
-    const textures = BspParser.readTextures(view, header.lumps[BSP_LUMPS.TEXTURES]);
-    const vertices = BspParser.readVertices(view, header.lumps[BSP_LUMPS.VERTICES]);
-    const meshVerts = BspParser.readMeshVerts(view, header.lumps[BSP_LUMPS.MESHVERTS]);
-    const faces = BspParser.readFaces(view, header.lumps[BSP_LUMPS.FACES]);
-    const models = BspParser.readModels(view, header.lumps[BSP_LUMPS.MODELS]);
+    const getLump = (id: number): BspLump => {
+      const lump = header.lumps[id];
+      invariant(lump !== undefined, `Missing lump ${id}`);
+      return lump;
+    };
+
+    const entities = BspParser.readEntities(view, getLump(BSP_LUMPS.ENTITIES));
+    const textures = BspParser.readTextures(view, getLump(BSP_LUMPS.TEXTURES));
+    const vertices = BspParser.readVertices(view, getLump(BSP_LUMPS.VERTICES));
+    const meshVerts = BspParser.readMeshVerts(view, getLump(BSP_LUMPS.MESHVERTS));
+    const faces = BspParser.readFaces(view, getLump(BSP_LUMPS.FACES));
+    const models = BspParser.readModels(view, getLump(BSP_LUMPS.MODELS));
 
     const rawLumps: Record<string, Uint8Array> = {
-      planes: BspParser.readRaw(view, header.lumps[BSP_LUMPS.PLANES]),
-      nodes: BspParser.readRaw(view, header.lumps[BSP_LUMPS.NODES]),
-      leafs: BspParser.readRaw(view, header.lumps[BSP_LUMPS.LEAFS]),
-      leafFaces: BspParser.readRaw(view, header.lumps[BSP_LUMPS.LEAFFACES]),
-      leafBrushes: BspParser.readRaw(view, header.lumps[BSP_LUMPS.LEAFBRUSHES]),
-      brushes: BspParser.readRaw(view, header.lumps[BSP_LUMPS.BRUSHES]),
-      brushSides: BspParser.readRaw(view, header.lumps[BSP_LUMPS.BRUSHSIDES]),
-      effects: BspParser.readRaw(view, header.lumps[BSP_LUMPS.EFFECTS]),
-      lightmaps: BspParser.readRaw(view, header.lumps[BSP_LUMPS.LIGHTMAPS]),
-      lightvols: BspParser.readRaw(view, header.lumps[BSP_LUMPS.LIGHTVOLS]),
-      visdata: BspParser.readRaw(view, header.lumps[BSP_LUMPS.VISDATA]),
+      planes: BspParser.readRaw(view, getLump(BSP_LUMPS.PLANES)),
+      nodes: BspParser.readRaw(view, getLump(BSP_LUMPS.NODES)),
+      leafs: BspParser.readRaw(view, getLump(BSP_LUMPS.LEAFS)),
+      leafFaces: BspParser.readRaw(view, getLump(BSP_LUMPS.LEAFFACES)),
+      leafBrushes: BspParser.readRaw(view, getLump(BSP_LUMPS.LEAFBRUSHES)),
+      brushes: BspParser.readRaw(view, getLump(BSP_LUMPS.BRUSHES)),
+      brushSides: BspParser.readRaw(view, getLump(BSP_LUMPS.BRUSHSIDES)),
+      effects: BspParser.readRaw(view, getLump(BSP_LUMPS.EFFECTS)),
+      lightmaps: BspParser.readRaw(view, getLump(BSP_LUMPS.LIGHTMAPS)),
+      lightvols: BspParser.readRaw(view, getLump(BSP_LUMPS.LIGHTVOLS)),
+      visdata: BspParser.readRaw(view, getLump(BSP_LUMPS.VISDATA)),
     };
 
     return {

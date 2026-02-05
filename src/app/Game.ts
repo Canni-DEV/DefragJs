@@ -66,6 +66,7 @@ export class Game {
   private wireframe = false;
 
   constructor(private readonly root: HTMLElement) {
+    THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -75,6 +76,7 @@ export class Game {
     canvasContainer.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
+    this.scene.up.set(0, 0, 1);
     this.scene.background = new THREE.Color(0x0b0f14);
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 20000);
 
@@ -148,8 +150,8 @@ export class Game {
     if (!data) {
       return;
     }
-    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    this.mapData = BspParser.parse(buffer);
+    const bytes = new Uint8Array(data);
+    this.mapData = BspParser.parse(bytes.buffer);
     this.buildMap();
 
     const entities = EntityParser.parseEntities(this.mapData.entities);
@@ -266,8 +268,8 @@ class InputState {
         return;
       }
       const sensitivity = 0.12;
-      this.viewYaw = (this.viewYaw + event.movementX * sensitivity) % 360;
-      this.viewPitch = Math.max(-85, Math.min(85, this.viewPitch - event.movementY * sensitivity));
+      this.viewYaw = (this.viewYaw - event.movementX * sensitivity) % 360;
+      this.viewPitch = Math.max(-85, Math.min(85, this.viewPitch + event.movementY * sensitivity));
     });
   }
 
@@ -283,7 +285,7 @@ class InputState {
       rightmove: right,
       upmove: up,
       buttons,
-      msec: dt * 1000,
+      msec: Math.round(dt * 1000),
       viewYaw: this.viewYaw,
       viewPitch: this.viewPitch,
     };
@@ -304,8 +306,11 @@ function parseVec3(value: string | undefined): Vec3 | null {
     return null;
   }
   const parts = value.trim().split(/\s+/).map((v) => Number(v));
-  if (parts.length < 3 || parts.some((v) => Number.isNaN(v))) {
+  const x = parts[0];
+  const y = parts[1];
+  const z = parts[2];
+  if (x === undefined || y === undefined || z === undefined || Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
     return null;
   }
-  return new Vec3(parts[0], parts[1], parts[2]);
+  return new Vec3(x, y, z);
 }

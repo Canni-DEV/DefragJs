@@ -166,6 +166,9 @@ export class Pmove {
       }
 
       const planeNormal = planes[planeCount];
+      if (!planeNormal) {
+        break;
+      }
       planeNormal.copy(traceResult.planeNormal);
       planeCount += 1;
 
@@ -174,7 +177,11 @@ export class Pmove {
       } else {
         const newVel = tmp1.copy(state.velocity);
         for (let i = 0; i < planeCount; i += 1) {
-          Pmove.clipVelocity(newVel, planes[i], overclip);
+          const plane = planes[i];
+          if (!plane) {
+            continue;
+          }
+          Pmove.clipVelocity(newVel, plane, overclip);
         }
         state.velocity.copy(newVel);
       }
