@@ -31,6 +31,8 @@ export class TriggerSystem {
       if (!trigger) {
         continue;
       }
+      // TODO(defrag): brush-model triggers should be validated against brush contents,
+      // but AABB-only is kept for now to avoid missing teleports in real maps.
       const isInside = trigger.bounds.intersects(playerBounds);
       const wasInside = this.active.has(i);
       if (isInside && !wasInside) {
