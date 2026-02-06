@@ -71,6 +71,7 @@ export class Game {
   private debugMesh = false;
   private chunkSize = 2048;
   private filePanel: FileMountPanel | null = null;
+  private useTriMesh = false;
 
   constructor(private readonly root: HTMLElement) {
     THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -121,12 +122,19 @@ export class Game {
         }
       },
       onPhysicsMode: (mode) => this.setPhysicsMode(mode),
+      onUseTriMesh: (enabled) => {
+        this.useTriMesh = enabled;
+        if (this.mapData) {
+          this.traceWorld = this.buildTraceWorld(this.mapData);
+          this.player.setTraceWorld(this.traceWorld);
+        }
+      },
     });
 
     uiRoot.append(filePanel.element, mapPanel.element, debugPanel.element, this.hud.element);
     this.filePanel = filePanel;
 
-    this.loop = new GameLoop(new FixedTimestep(0.016), (dt) => this.update(dt), () => this.render());
+    this.loop = new GameLoop(new FixedTimestep(0.008), (dt) => this.update(dt), () => this.render());
 
     window.addEventListener('resize', () => this.onResize());
     window.addEventListener('dragover', (event) => {
@@ -271,6 +279,9 @@ export class Game {
   }
 
   private buildTraceWorld(mapData: ReturnType<typeof BspParser.parse>): ITraceWorld {
+    if (this.useTriMesh) {
+      return TriMeshTraceWorld.fromBsp(mapData, 4);
+    }
     try {
       return BrushTraceWorld.fromBsp(mapData);
     } catch {

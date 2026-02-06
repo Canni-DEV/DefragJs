@@ -2,6 +2,7 @@ export type DebugPanelOptions = {
   onWireframe: (enabled: boolean) => void;
   onPhysicsMode: (mode: 'VQ3' | 'CPM') => void;
   onDoubleSided: (enabled: boolean) => void;
+  onUseTriMesh: (enabled: boolean) => void;
 };
 
 export class DebugPanel {
@@ -46,7 +47,24 @@ export class DebugPanel {
       options.onDoubleSided(doubleToggle.checked);
     });
 
-    stack.append(wireLabel, wireToggle, modeLabel, modeSelect, doubleLabel, doubleToggle);
+    const triLabel = document.createElement('label');
+    triLabel.textContent = 'TriMesh Collisions';
+    const triToggle = document.createElement('input');
+    triToggle.type = 'checkbox';
+    triToggle.addEventListener('change', () => {
+      options.onUseTriMesh(triToggle.checked);
+    });
+
+    stack.append(
+      wireLabel,
+      wireToggle,
+      modeLabel,
+      modeSelect,
+      doubleLabel,
+      doubleToggle,
+      triLabel,
+      triToggle
+    );
     this.element.append(stack);
   }
 }

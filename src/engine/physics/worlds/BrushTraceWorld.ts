@@ -148,6 +148,8 @@ export class BrushTraceWorld implements ITraceWorld {
     let enterFrac = -1;
     let leaveFrac = 1;
     let clipPlane: BspPlane | null = null;
+    let bestPlane: BspPlane | null = null;
+    let bestDist = Number.NEGATIVE_INFINITY;
     let startsOut = false;
     let getsOut = false;
 
@@ -168,6 +170,11 @@ export class BrushTraceWorld implements ITraceWorld {
       const dist = plane.dist - offset;
       const startDist = plane.normal.dot(start) - dist;
       const endDist = plane.normal.dot(end) - dist;
+
+      if (startDist > bestDist) {
+        bestDist = startDist;
+        bestPlane = plane;
+      }
 
       if (startDist > 0) {
         startsOut = true;
@@ -208,7 +215,7 @@ export class BrushTraceWorld implements ITraceWorld {
       return {
         fraction: 0,
         endPos: start.clone(),
-        planeNormal: new Vec3(0, 0, 1),
+        planeNormal: bestPlane ? bestPlane.normal.clone() : new Vec3(0, 0, 1),
         startSolid: true,
         allSolid: !getsOut,
       };

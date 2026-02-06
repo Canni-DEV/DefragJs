@@ -1,6 +1,6 @@
 import { Vec3 } from '../../core/Math/Vec3';
 import { ITraceWorld } from '../ITraceWorld';
-import { TraceBoxRequest, Contents } from '../TraceTypes';
+import { Contents } from '../TraceTypes';
 import { PhysicsMode } from './PhysicsModes';
 import { BUTTON_JUMP, PlayerState, UserCmd } from './PmoveTypes';
 
@@ -9,19 +9,55 @@ const tmp2 = new Vec3();
 const tmp3 = new Vec3();
 const tmp4 = new Vec3();
 const tmp5 = new Vec3();
+const tmp6 = new Vec3();
+const tmp7 = new Vec3();
+const tmp8 = new Vec3();
+const tmp9 = new Vec3();
+const tmp10 = new Vec3();
 const tmpForward = new Vec3();
 const tmpRight = new Vec3();
 const tmpPlane0 = new Vec3();
 const tmpPlane1 = new Vec3();
 const tmpPlane2 = new Vec3();
 const tmpPlane3 = new Vec3();
+const tmpPlane4 = new Vec3();
 const tmpStandMaxs = new Vec3();
 
 const STAND_MAX_Z = 32;
 const DUCK_MAX_Z = 16;
 const STAND_VIEW = 26;
 const DUCK_VIEW = 12;
+const MIN_WALK_NORMAL = 0.7;
+const GROUND_EPS = 0.25;
 const MASK_PLAYER = Contents.SOLID | Contents.PLAYERCLIP;
+const CLIP_PLANES = [tmpPlane0, tmpPlane1, tmpPlane2, tmpPlane3, tmpPlane4];
+const AIR_CONTROL_CTX = {
+  velocity: new Vec3(),
+  wishDir: new Vec3(),
+  wishSpeed: 0,
+  dt: 0,
+  cmd: {
+    forwardmove: 0,
+    rightmove: 0,
+    upmove: 0,
+    buttons: 0,
+    msec: 0,
+    viewYaw: 0,
+    viewPitch: 0,
+  },
+};
+const STUCK_OFFSETS: Vec3[] = (() => {
+  const offsets: Vec3[] = [];
+  const values = [-1, 0, 1];
+  for (const x of values) {
+    for (const y of values) {
+      for (const z of values) {
+        offsets.push(new Vec3(x, y, z));
+      }
+    }
+  }
+  return offsets;
+})();
 
 export class Pmove {
   static move(state: PlayerState, cmd: UserCmd, trace: ITraceWorld, mode: PhysicsMode): void {
@@ -33,6 +69,7 @@ export class Pmove {
     const params = mode.params;
 
     Pmove.updateDuck(state, cmd, trace);
+    Pmove.correctAllSolid(state, trace);
 
     const onGround = Pmove.groundTrace(state, trace);
     state.onGround = onGround;
@@ -54,6 +91,14 @@ export class Pmove {
       Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.accelerate, dt);
     } else {
       Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.airAccelerate, dt);
+      if (mode.hooks?.airControl) {
+        AIR_CONTROL_CTX.velocity = state.velocity;
+        AIR_CONTROL_CTX.wishDir = wish.dir;
+        AIR_CONTROL_CTX.wishSpeed = wish.speed;
+        AIR_CONTROL_CTX.dt = dt;
+        AIR_CONTROL_CTX.cmd = cmd;
+        mode.hooks.airControl(AIR_CONTROL_CTX);
+      }
     }
 
     if (!state.onGround) {
@@ -61,6 +106,12 @@ export class Pmove {
     }
 
     Pmove.stepSlideMove(state, trace, params, dt);
+
+    const postGround = Pmove.groundTrace(state, trace);
+    state.onGround = postGround && state.velocity.z <= 0;
+    if (state.onGround && state.velocity.z < 0) {
+      state.velocity.z = 0;
+    }
   }
 
   private static computeWish(
@@ -87,6 +138,37 @@ export class Pmove {
     const baseSpeed = Math.min(1, wishSpeedInput) * params.wishSpeed;
     const wishSpeed = ducked ? baseSpeed * params.duckScale : baseSpeed;
     return { dir: tmp1, speed: wishSpeed };
+  }
+
+  private static correctAllSolid(state: PlayerState, trace: ITraceWorld): void {
+    const start = state.position;
+    const startTrace = trace.traceBox({
+      start,
+      end: start,
+      mins: state.bboxMins,
+      maxs: state.bboxMaxs,
+      mask: MASK_PLAYER,
+    });
+    if (!startTrace.startSolid && !startTrace.allSolid) {
+      return;
+    }
+
+    for (const offset of STUCK_OFFSETS) {
+      tmp2.set(start.x + offset.x, start.y + offset.y, start.z + offset.z);
+      const testTrace = trace.traceBox({
+        start: tmp2,
+        end: tmp2,
+        mins: state.bboxMins,
+        maxs: state.bboxMaxs,
+        mask: MASK_PLAYER,
+      });
+      if (!testTrace.startSolid && !testTrace.allSolid) {
+        state.position.copy(tmp2);
+        return;
+      }
+    }
+
+    state.velocity.set(0, 0, 0);
   }
 
   private static updateDuck(state: PlayerState, cmd: UserCmd, trace: ITraceWorld): void {
@@ -147,13 +229,17 @@ export class Pmove {
     const startPos = tmp4.copy(state.position);
     const startVel = tmp5.copy(state.velocity);
 
-    const moved = Pmove.slideMove(state, trace, params.overclip, dt);
-    if (moved) {
+    const blocked = Pmove.slideMove(state, trace, params.overclip, dt);
+    if (!blocked) {
       return;
     }
 
+    const slidePos = tmp9.copy(state.position);
+    const slideVel = tmp10.copy(state.velocity);
+
+    const stepSize = state.ducked ? Math.min(params.stepSize, 16) : params.stepSize;
     const stepUp = tmp3.copy(startPos);
-    stepUp.z += params.stepSize;
+    stepUp.z += stepSize;
     const upTrace = trace.traceBox({
       start: startPos,
       end: stepUp,
@@ -161,9 +247,9 @@ export class Pmove {
       maxs: state.bboxMaxs,
       mask: MASK_PLAYER,
     });
-    if (upTrace.fraction < 1 || upTrace.startSolid) {
-      state.position.copy(startPos);
-      state.velocity.copy(startVel);
+    if (upTrace.fraction < 1 || upTrace.startSolid || upTrace.allSolid) {
+      state.position.copy(slidePos);
+      state.velocity.copy(slideVel);
       return;
     }
 
@@ -172,7 +258,7 @@ export class Pmove {
     Pmove.slideMove(state, trace, params.overclip, dt);
 
     const downPos = tmp3.copy(state.position);
-    downPos.z -= params.stepSize;
+    downPos.z -= stepSize;
     const downTrace = trace.traceBox({
       start: state.position,
       end: downPos,
@@ -180,13 +266,43 @@ export class Pmove {
       maxs: state.bboxMaxs,
       mask: MASK_PLAYER,
     });
+
+    if (downTrace.startSolid || downTrace.allSolid) {
+      state.position.copy(slidePos);
+      state.velocity.copy(slideVel);
+      return;
+    }
+
+    if (downTrace.fraction < 1 && downTrace.planeNormal.z < MIN_WALK_NORMAL) {
+      state.position.copy(slidePos);
+      state.velocity.copy(slideVel);
+      return;
+    }
+
     state.position.copy(downTrace.endPos);
+    if (downTrace.fraction < 1) {
+      Pmove.clipVelocity(state.velocity, downTrace.planeNormal, params.overclip);
+    }
+
+    const slideDx = slidePos.x - startPos.x;
+    const slideDy = slidePos.y - startPos.y;
+    const slideDz = slidePos.z - startPos.z;
+    const stepDx = state.position.x - startPos.x;
+    const stepDy = state.position.y - startPos.y;
+    const stepDz = state.position.z - startPos.z;
+    const slideDistSq = slideDx * slideDx + slideDy * slideDy + slideDz * slideDz;
+    const stepDistSq = stepDx * stepDx + stepDy * stepDy + stepDz * stepDz;
+    if (slideDistSq > stepDistSq) {
+      state.position.copy(slidePos);
+      state.velocity.copy(slideVel);
+    }
   }
 
   private static slideMove(state: PlayerState, trace: ITraceWorld, overclip: number, dt: number): boolean {
     let timeLeft = dt;
-    let bumped = false;
-    const planes = [tmpPlane0, tmpPlane1, tmpPlane2, tmpPlane3];
+    let blocked = false;
+    const primalVelocity = tmp6.copy(state.velocity);
+    const newVelocity = tmp7.copy(state.velocity);
     let planeCount = 0;
 
     for (let bump = 0; bump < 4; bump += 1) {
@@ -199,43 +315,81 @@ export class Pmove {
         mask: MASK_PLAYER,
       });
 
+      if (traceResult.allSolid) {
+        state.velocity.set(0, 0, 0);
+        return true;
+      }
+
       if (traceResult.fraction > 0) {
         state.position.copy(traceResult.endPos);
-        bumped = true;
       }
 
       if (traceResult.fraction === 1) {
         break;
       }
 
+      blocked = true;
       timeLeft -= timeLeft * traceResult.fraction;
       if (timeLeft <= 0) {
         break;
       }
 
-      const planeNormal = planes[planeCount];
-      if (!planeNormal) {
+      if (planeCount >= CLIP_PLANES.length) {
+        state.velocity.set(0, 0, 0);
         break;
       }
+
+      const planeNormal = CLIP_PLANES[planeCount];
       planeNormal.copy(traceResult.planeNormal);
       planeCount += 1;
 
-      if (planeCount === 1) {
-        Pmove.clipVelocity(state.velocity, planeNormal, overclip);
-      } else {
-        const newVel = tmp1.copy(state.velocity);
-        for (let i = 0; i < planeCount; i += 1) {
-          const plane = planes[i];
-          if (!plane) {
+      let validVelocity = false;
+      for (let i = 0; i < planeCount; i += 1) {
+        const plane = CLIP_PLANES[i];
+        newVelocity.copy(state.velocity);
+        Pmove.clipVelocity(newVelocity, plane, overclip);
+
+        let j = 0;
+        for (; j < planeCount; j += 1) {
+          if (j === i) {
             continue;
           }
-          Pmove.clipVelocity(newVel, plane, overclip);
+          const other = CLIP_PLANES[j];
+          if (newVelocity.dot(other) < 0) {
+            break;
+          }
         }
-        state.velocity.copy(newVel);
+
+        if (j === planeCount) {
+          state.velocity.copy(newVelocity);
+          validVelocity = true;
+          break;
+        }
+      }
+
+      if (!validVelocity) {
+        if (planeCount !== 2) {
+          state.velocity.set(0, 0, 0);
+          break;
+        }
+
+        tmp8.copy(CLIP_PLANES[0]).cross(CLIP_PLANES[1], tmp8);
+        if (tmp8.length() < 1e-5) {
+          state.velocity.set(0, 0, 0);
+          break;
+        }
+        tmp8.normalize();
+        const d = tmp8.dot(primalVelocity);
+        state.velocity.copy(tmp8).scale(d);
+      }
+
+      if (state.velocity.dot(primalVelocity) <= 0) {
+        state.velocity.set(0, 0, 0);
+        break;
       }
     }
 
-    return bumped;
+    return blocked;
   }
 
   private static clipVelocity(vel: Vec3, normal: Vec3, overclip: number): void {
@@ -252,7 +406,7 @@ export class Pmove {
 
   private static groundTrace(state: PlayerState, trace: ITraceWorld): boolean {
     const start = state.position;
-    const end = Vec3.add(tmp1, start, tmp2.set(0, 0, -2));
+    const end = Vec3.add(tmp1, start, tmp2.set(0, 0, -GROUND_EPS));
     const result = trace.traceBox({
       start,
       end,
@@ -260,7 +414,10 @@ export class Pmove {
       maxs: state.bboxMaxs,
       mask: MASK_PLAYER,
     });
-    if ((result.fraction < 1 || result.startSolid) && result.planeNormal.z > 0.7) {
+    if (result.allSolid) {
+      return false;
+    }
+    if (result.fraction < 1 && result.planeNormal.z >= MIN_WALK_NORMAL) {
       state.position.copy(result.endPos);
       return true;
     }
