@@ -12,14 +12,26 @@ import {
 
 export class BspCollisionParser {
   static parse(bsp: BspData): BspCollisionData {
+    const planes = BspCollisionParser.requireLump(bsp, 'planes');
+    const nodes = BspCollisionParser.requireLump(bsp, 'nodes');
+    const leafs = BspCollisionParser.requireLump(bsp, 'leafs');
+    const leafBrushes = BspCollisionParser.requireLump(bsp, 'leafBrushes');
+    const brushes = BspCollisionParser.requireLump(bsp, 'brushes');
+    const brushSides = BspCollisionParser.requireLump(bsp, 'brushSides');
     return {
-      planes: BspCollisionParser.readPlanes(bsp.rawLumps.planes),
-      nodes: BspCollisionParser.readNodes(bsp.rawLumps.nodes),
-      leafs: BspCollisionParser.readLeafs(bsp.rawLumps.leafs),
-      leafBrushes: BspCollisionParser.readLeafBrushes(bsp.rawLumps.leafBrushes),
-      brushes: BspCollisionParser.readBrushes(bsp.rawLumps.brushes),
-      brushSides: BspCollisionParser.readBrushSides(bsp.rawLumps.brushSides),
+      planes: BspCollisionParser.readPlanes(planes),
+      nodes: BspCollisionParser.readNodes(nodes),
+      leafs: BspCollisionParser.readLeafs(leafs),
+      leafBrushes: BspCollisionParser.readLeafBrushes(leafBrushes),
+      brushes: BspCollisionParser.readBrushes(brushes),
+      brushSides: BspCollisionParser.readBrushSides(brushSides),
     };
+  }
+
+  private static requireLump(bsp: BspData, key: string): Uint8Array {
+    const lump = bsp.rawLumps[key];
+    invariant(lump !== undefined, `Missing BSP lump: ${key}`);
+    return lump;
   }
 
   private static readPlanes(raw: Uint8Array): BspPlane[] {

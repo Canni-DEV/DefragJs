@@ -31,4 +31,9 @@ export class GameLoop {
       this.rafId = null;
     }
   }
+
+  setStepSeconds(stepSeconds: number): void {
+    this.timestep.setStepSeconds(stepSeconds);
+    this.timestep.reset(performance.now() / 1000);
+  }
 }

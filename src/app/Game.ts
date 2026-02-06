@@ -6,6 +6,7 @@ import { EntityParser } from '../engine/io/bsp/EntityParser';
 import { MapRenderer } from '../engine/render/MapRenderer';
 import { TriMeshTraceWorld } from '../engine/physics/worlds/TriMeshTraceWorld';
 import { BrushTraceWorld } from '../engine/physics/worlds/BrushTraceWorld';
+import { CompositeTraceWorld } from '../engine/physics/worlds/CompositeTraceWorld';
 import { PlayerController } from '../engine/physics/player/PlayerController';
 import { CameraRig } from '../engine/physics/player/CameraRig';
 import { FixedTimestep } from '../engine/core/FixedTimestep';
@@ -41,6 +42,11 @@ class NullTraceWorld implements ITraceWorld {
   }
 }
 
+const MODE_TIMESTEP_SECONDS: Record<'VQ3' | 'CPM', number> = {
+  VQ3: 1 / 125,
+  CPM: 1 / 125,
+};
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
@@ -72,6 +78,8 @@ export class Game {
   private chunkSize = 2048;
   private filePanel: FileMountPanel | null = null;
   private useTriMesh = false;
+  private showVelocity = false;
+  private showPlanes = false;
 
   constructor(private readonly root: HTMLElement) {
     THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -129,12 +137,22 @@ export class Game {
           this.player.setTraceWorld(this.traceWorld);
         }
       },
+      onShowVelocity: (enabled) => {
+        this.showVelocity = enabled;
+      },
+      onShowPlanes: (enabled) => {
+        this.showPlanes = enabled;
+      },
     });
 
     uiRoot.append(filePanel.element, mapPanel.element, debugPanel.element, this.hud.element);
     this.filePanel = filePanel;
 
-    this.loop = new GameLoop(new FixedTimestep(0.008), (dt) => this.update(dt), () => this.render());
+    this.loop = new GameLoop(
+      new FixedTimestep(this.getStepSecondsForMode(this.physicsMode.id)),
+      (dt) => this.update(dt),
+      () => this.render()
+    );
 
     window.addEventListener('resize', () => this.onResize());
     window.addEventListener('dragover', (event) => {
@@ -151,6 +169,8 @@ export class Game {
     this.input.attach(this.renderer.domElement);
     this.onMountedUpdate = (names) => filePanel.setMounted(names);
     this.onMapsUpdate = (maps) => mapPanel.setMaps(maps);
+
+    this.logPhysicsMode(this.physicsMode);
   }
 
   private onMountedUpdate: (names: string[]) => void = () => {};
@@ -283,7 +303,11 @@ export class Game {
       return TriMeshTraceWorld.fromBsp(mapData, 4);
     }
     try {
-      return BrushTraceWorld.fromBsp(mapData);
+      const brushWorld = BrushTraceWorld.fromBsp(mapData);
+      const patchWorld = TriMeshTraceWorld.fromBsp(mapData, 4, {
+        faceFilter: (face) => face.type === 2,
+      });
+      return new CompositeTraceWorld(brushWorld, patchWorld);
     } catch {
       return TriMeshTraceWorld.fromBsp(mapData, 4);
     }
@@ -326,6 +350,39 @@ export class Game {
     this.physicsMode = modeId === 'CPM' ? CPM : Q3Vanilla;
     this.player.setMode(this.physicsMode);
     this.player.state.velocity.set(0, 0, 0);
+    this.loop.setStepSeconds(this.getStepSecondsForMode(modeId));
+    this.logPhysicsMode(this.physicsMode);
+  }
+
+  private getStepSecondsForMode(modeId: 'VQ3' | 'CPM'): number {
+    return MODE_TIMESTEP_SECONDS[modeId] ?? MODE_TIMESTEP_SECONDS.VQ3;
+  }
+
+  private logPhysicsMode(mode: PhysicsMode): void {
+    console.log('[DefragJs] Physics mode active', mode.id, mode.params);
+  }
+
+  private buildDebugLines(): string[] {
+    if (!this.showVelocity && !this.showPlanes) {
+      return [];
+    }
+    const lines: string[] = [];
+    if (this.showVelocity) {
+      const vel = this.player.state.velocity;
+      const speed2d = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      const speed3d = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+      lines.push(`speed ${speed2d.toFixed(1)} (3d ${speed3d.toFixed(1)})`);
+      lines.push(`vel ${vel.x.toFixed(1)} ${vel.y.toFixed(1)} ${vel.z.toFixed(1)}`);
+    }
+    if (this.showPlanes) {
+      const ground = this.player.state.groundNormal;
+      lines.push(
+        `ground ${this.player.state.onGround ? 'yes' : 'no'} n=${ground.x.toFixed(2)} ${ground.y.toFixed(
+          2
+        )} ${ground.z.toFixed(2)}`
+      );
+    }
+    return lines;
   }
 
   private update(dt: number): void {
@@ -363,6 +420,7 @@ export class Game {
 
     this.timerSystem.tick(dt);
     this.hud.update(this.timerSystem.elapsedMs, this.timerSystem.splits);
+    this.hud.setDebugLines(this.buildDebugLines());
 
     this.cameraRig.apply(this.camera, this.player.state, this.input.viewYaw, this.input.viewPitch);
   }
@@ -405,9 +463,10 @@ class InputState {
   }
 
   buildUserCmd(dt: number): UserCmd {
-    const forward = this.keyAxis('KeyW', 'KeyS');
-    const right = this.keyAxis('KeyD', 'KeyA');
-    const up = this.keyAxis('Space', 'ControlLeft');
+    const moveScale = 127;
+    const forward = this.keyAxis('KeyW', 'KeyS') * moveScale;
+    const right = this.keyAxis('KeyD', 'KeyA') * moveScale;
+    const up = this.keyAxis('Space', 'ControlLeft') * moveScale;
 
     const buttons = this.keys.has('Space') ? BUTTON_JUMP : 0;
 

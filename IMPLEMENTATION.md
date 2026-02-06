@@ -180,12 +180,13 @@ export interface PhysicsMode {
 PmoveParams incluye:
 
 - friction, stopSpeed
-- accelerate, airAccelerate
+- accelerate, airAccelerate, strafeAccelerate
+- airSpeedCap, airControl
 - gravity
 - jumpVelocity
 - stepSize
 - overclip
-- wishSpeedCap, duckScale, etc.
+- wishSpeed, duckScale, rampBoost, etc.
 
 ---
 
@@ -315,6 +316,8 @@ Checklist:
 - [x] Broadphase funcionando.
 - [x] traceBox devuelve fraction/endPos/normal/startSolid.
 - [x] Walkable sin jitter extremo.
+- [x] Trace continuo (sin stepping fijo).
+- [x] `mask` respetado + contents por tri.
 
 #### 4.6 Movimiento fase 1: Pmove VQ3 (BBox Q3 desde el inicio)
 
@@ -339,6 +342,11 @@ Checklist:
 - [x] Strafe/airmove basico ok.
 - [x] StepSlideMove implementado.
 - [x] Jump/gravity ok.
+- [x] `cmdScale`/`wishSpeed` estilo Q3.
+- [x] Ground plane guardado por tick.
+- [x] Half-step gravity en slideMove.
+- [x] Air cap/strafe accel/air control por modo.
+- [x] Ramp boost CPM + jump comportamiento por modo.
 
 #### 4.7 GameLoop determinista: FixedTimestep
 
@@ -354,6 +362,8 @@ Checklist:
 - [x] Fixed timestep activo.
 - [x] `UserCmd.msec` consistente.
 - [x] Movimiento no depende de FPS.
+- [x] Timestep por modo (CPM 125Hz).
+- [x] Accumulator clamp para spikes.
 
 ---
 

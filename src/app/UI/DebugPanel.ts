@@ -3,6 +3,8 @@ export type DebugPanelOptions = {
   onPhysicsMode: (mode: 'VQ3' | 'CPM') => void;
   onDoubleSided: (enabled: boolean) => void;
   onUseTriMesh: (enabled: boolean) => void;
+  onShowVelocity: (enabled: boolean) => void;
+  onShowPlanes: (enabled: boolean) => void;
 };
 
 export class DebugPanel {
@@ -55,6 +57,22 @@ export class DebugPanel {
       options.onUseTriMesh(triToggle.checked);
     });
 
+    const velLabel = document.createElement('label');
+    velLabel.textContent = 'Show Velocity';
+    const velToggle = document.createElement('input');
+    velToggle.type = 'checkbox';
+    velToggle.addEventListener('change', () => {
+      options.onShowVelocity(velToggle.checked);
+    });
+
+    const planeLabel = document.createElement('label');
+    planeLabel.textContent = 'Show Ground Plane';
+    const planeToggle = document.createElement('input');
+    planeToggle.type = 'checkbox';
+    planeToggle.addEventListener('change', () => {
+      options.onShowPlanes(planeToggle.checked);
+    });
+
     stack.append(
       wireLabel,
       wireToggle,
@@ -63,7 +81,11 @@ export class DebugPanel {
       doubleLabel,
       doubleToggle,
       triLabel,
-      triToggle
+      triToggle,
+      velLabel,
+      velToggle,
+      planeLabel,
+      planeToggle
     );
     this.element.append(stack);
   }

@@ -16,6 +16,7 @@ export type PlayerState = {
   position: Vec3;
   velocity: Vec3;
   onGround: boolean;
+  groundNormal: Vec3;
   ducked: boolean;
   bboxMins: Vec3;
   bboxMaxs: Vec3;
@@ -27,10 +28,14 @@ export type PmoveParams = {
   stopSpeed: number;
   accelerate: number;
   airAccelerate: number;
+  airSpeedCap: number;
+  airControl: number;
+  strafeAccelerate: number;
   gravity: number;
   jumpVelocity: number;
   stepSize: number;
   overclip: number;
   wishSpeed: number;
   duckScale: number;
+  rampBoost: number;
 };

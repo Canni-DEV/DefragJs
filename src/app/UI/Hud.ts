@@ -2,6 +2,7 @@ export class Hud {
   readonly element: HTMLDivElement;
   private readonly timeEl: HTMLDivElement;
   private readonly splitsEl: HTMLDivElement;
+  private readonly debugEl: HTMLDivElement;
 
   constructor() {
     this.element = document.createElement('div');
@@ -14,7 +15,10 @@ export class Hud {
     this.splitsEl = document.createElement('div');
     this.splitsEl.className = 'splits';
 
-    this.element.append(this.timeEl, this.splitsEl);
+    this.debugEl = document.createElement('div');
+    this.debugEl.className = 'debug';
+
+    this.element.append(this.timeEl, this.splitsEl, this.debugEl);
   }
 
   update(timeMs: number, splits: number[]): void {
@@ -25,6 +29,16 @@ export class Hud {
       line.textContent = `#${index + 1} ${formatTime(split)}`;
       this.splitsEl.appendChild(line);
     });
+  }
+
+  setDebugLines(lines: string[]): void {
+    if (lines.length === 0) {
+      this.debugEl.textContent = '';
+      this.debugEl.style.display = 'none';
+      return;
+    }
+    this.debugEl.style.display = 'block';
+    this.debugEl.textContent = lines.join('\n');
   }
 }
 

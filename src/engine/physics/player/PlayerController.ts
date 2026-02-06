@@ -16,6 +16,7 @@ export class PlayerController {
       position: new Vec3(),
       velocity: new Vec3(),
       onGround: false,
+      groundNormal: new Vec3(0, 0, 1),
       ducked: false,
       bboxMins: new Vec3(-15, -15, -24),
       bboxMaxs: new Vec3(15, 15, 32),
