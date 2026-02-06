@@ -442,10 +442,10 @@ Broadphase por BSP:
 
 Checklist:
 
-- traceBox brush-based correcto.
-- pointContents real.
-- StepSlideMove mas estable.
-- No atraviesa brushes.
+- [x] traceBox brush-based correcto.
+- [x] pointContents real.
+- [x] StepSlideMove mas estable.
+- [x] No atraviesa brushes.
 
 #### 6.2 Triggers reales desde brush models
 
@@ -462,10 +462,10 @@ Runtime:
 
 Checklist:
 
-- Triggers brush-model detectados.
-- Enter/leave correcto.
-- Teleports reales funcionan en mapas DeFRaG.
-- Start/stop/checkpoints reales funcionan.
+- [x] Triggers brush-model detectados.
+- [x] Enter/leave correcto.
+- [x] Teleports reales funcionan en mapas DeFRaG.
+- [x] Start/stop/checkpoints reales funcionan.
 
 ---
 
@@ -481,9 +481,9 @@ Objetivo: mejor UX, caching opcional, herramientas, optimizaciones.
 
 Checklist:
 
-- Menos draw calls.
-- Culling por chunk.
-- Mantiene compatibilidad.
+- [x] Menos draw calls.
+- [x] Culling por chunk.
+- [x] Mantiene compatibilidad.
 
 #### 7.2 UX de archivos (cliente-only)
 
@@ -498,9 +498,9 @@ UI:
 
 Checklist:
 
-- Drag&drop.
-- Gestion de mounts/prioridad.
-- Cache IndexedDB (opcional).
+- [x] Drag&drop.
+- [x] Gestion de mounts/prioridad.
+- [x] Cache IndexedDB (opcional).
 
 #### 7.3 Herramientas
 
@@ -512,8 +512,8 @@ tools/map_inspector:
 
 Checklist:
 
-- Inspector funcional.
-- Reporte exportable (txt/json).
+- [x] Inspector funcional.
+- [x] Reporte exportable (txt/json).
 
 #### 7.4 Replay/Ghost (opcional)
 

@@ -2,32 +2,44 @@ import { Vec3 } from '../../core/Math/Vec3';
 import { AABB } from '../../core/Math/AABB';
 import { EntityWorld } from '../entities/EntityWorld';
 import { Q3Entity, TriggerType } from '../entities/EntityTypes';
+import { BspModel } from '../../io/bsp/BspTypes';
+import { ITraceWorld } from '../../physics/ITraceWorld';
+import { Contents } from '../../physics/TraceTypes';
 
 export type TriggerVolume = {
   type: TriggerType;
   bounds: AABB;
   target?: string;
   entity: Q3Entity;
+  source: 'marker' | 'brushModel';
+  modelIndex?: number;
 };
 
 export class TriggerSystem {
   private triggers: TriggerVolume[] = [];
   private active = new Set<number>();
 
-  static fromEntityWorld(world: EntityWorld): TriggerSystem {
+  static fromEntityWorld(world: EntityWorld, models?: BspModel[]): TriggerSystem {
     const system = new TriggerSystem();
-    system.triggers = buildTriggers(world);
+    system.triggers = buildTriggers(world, models);
     return system;
   }
 
-  update(playerBounds: AABB): TriggerVolume[] {
+  update(playerBounds: AABB, traceWorld?: ITraceWorld): TriggerVolume[] {
     const entered: TriggerVolume[] = [];
     for (let i = 0; i < this.triggers.length; i += 1) {
       const trigger = this.triggers[i];
       if (!trigger) {
         continue;
       }
-      const isInside = trigger.bounds.intersects(playerBounds);
+      let isInside = trigger.bounds.intersects(playerBounds);
+      if (isInside && trigger.source === 'brushModel' && traceWorld?.pointContents) {
+        const center = playerBounds.mins.clone().add(playerBounds.maxs).scale(0.5);
+        const contents = traceWorld.pointContents(center);
+        if ((contents & Contents.TRIGGER) === 0) {
+          isInside = false;
+        }
+      }
       const wasInside = this.active.has(i);
       if (isInside && !wasInside) {
         entered.push(trigger);
@@ -40,19 +52,31 @@ export class TriggerSystem {
   }
 }
 
-function buildTriggers(world: EntityWorld): TriggerVolume[] {
+function buildTriggers(world: EntityWorld, models?: BspModel[]): TriggerVolume[] {
   const triggers: TriggerVolume[] = [];
   for (const ent of world.getAll()) {
     const triggerType = resolveTriggerType(ent);
     if (!triggerType) {
       continue;
     }
-    const bounds = resolveBounds(ent);
+    const modelIndex = parseModelIndex(ent.properties.model);
+    let bounds: AABB | null = null;
+    let source: 'marker' | 'brushModel' = 'marker';
+    if (modelIndex !== null && models) {
+      const model = models[modelIndex];
+      if (model) {
+        bounds = new AABB(model.mins.clone(), model.maxs.clone());
+        source = 'brushModel';
+      }
+    }
     if (!bounds) {
-      continue;
+      bounds = resolveBounds(ent);
+      if (!bounds) {
+        continue;
+      }
     }
     const target = ent.properties.target ?? ent.properties.df_teleport_target;
-    triggers.push({ type: triggerType, bounds, target, entity: ent });
+    triggers.push({ type: triggerType, bounds, target, entity: ent, source, modelIndex: modelIndex ?? undefined });
   }
   return triggers;
 }
@@ -109,4 +133,15 @@ function parseVec3(value: string | undefined): Vec3 | null {
     return null;
   }
   return new Vec3(x, y, z);
+}
+
+function parseModelIndex(value: string | undefined): number | null {
+  if (!value || !value.startsWith('*')) {
+    return null;
+  }
+  const id = Number(value.slice(1));
+  if (!Number.isFinite(id) || id <= 0) {
+    return null;
+  }
+  return id;
 }

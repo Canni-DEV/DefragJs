@@ -78,9 +78,10 @@ export class FileMountPanel {
 
   setMounted(names: string[]): void {
     this.list.innerHTML = '';
-    for (const name of names) {
+    for (let i = 0; i < names.length; i += 1) {
+      const name = names[i];
       const li = document.createElement('li');
-      li.textContent = name;
+      li.textContent = `${i + 1}. ${name}`;
       this.list.appendChild(li);
     }
   }

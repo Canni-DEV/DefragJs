@@ -1,13 +1,14 @@
+// Quake 3 contents flags (subset).
 export const Contents = {
   EMPTY: 0,
-  SOLID: 1 << 0,
-  WATER: 1 << 1,
-  SLIME: 1 << 2,
-  LAVA: 1 << 3,
-  PLAYERCLIP: 1 << 4,
-  MONSTERCLIP: 1 << 5,
-  BODY: 1 << 6,
-  TRIGGER: 1 << 7,
+  SOLID: 1,
+  LAVA: 8,
+  SLIME: 16,
+  WATER: 32,
+  PLAYERCLIP: 0x10000,
+  MONSTERCLIP: 0x20000,
+  BODY: 0x2000000,
+  TRIGGER: 0x40000000,
 } as const;
 
 export type ContentsMask = number;

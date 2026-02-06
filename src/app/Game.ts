@@ -5,6 +5,7 @@ import { BspParser } from '../engine/io/bsp/BspParser';
 import { EntityParser } from '../engine/io/bsp/EntityParser';
 import { MapRenderer } from '../engine/render/MapRenderer';
 import { TriMeshTraceWorld } from '../engine/physics/worlds/TriMeshTraceWorld';
+import { BrushTraceWorld } from '../engine/physics/worlds/BrushTraceWorld';
 import { PlayerController } from '../engine/physics/player/PlayerController';
 import { CameraRig } from '../engine/physics/player/CameraRig';
 import { FixedTimestep } from '../engine/core/FixedTimestep';
@@ -68,6 +69,7 @@ export class Game {
   private wireframe = false;
   private doubleSided = true;
   private debugMesh = false;
+  private chunkSize = 2048;
   private filePanel: FileMountPanel | null = null;
 
   constructor(private readonly root: HTMLElement) {
@@ -127,6 +129,16 @@ export class Game {
     this.loop = new GameLoop(new FixedTimestep(0.016), (dt) => this.update(dt), () => this.render());
 
     window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('dragover', (event) => {
+      event.preventDefault();
+    });
+    window.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const files = event.dataTransfer?.files;
+      if (files && files.length > 0) {
+        void this.mountFiles(files);
+      }
+    });
 
     this.input.attach(this.renderer.domElement);
     this.onMountedUpdate = (names) => filePanel.setMounted(names);
@@ -222,7 +234,7 @@ export class Game {
 
     const entities = EntityParser.parseEntities(this.mapData.entities);
     const entityWorld = new EntityWorld(entities);
-    this.triggerSystem = TriggerSystem.fromEntityWorld(entityWorld);
+    this.triggerSystem = TriggerSystem.fromEntityWorld(entityWorld, this.mapData.models);
     this.teleportSystem = TeleportSystem.fromEntityWorld(entityWorld);
     this.timerSystem.reset();
 
@@ -246,10 +258,19 @@ export class Game {
       patchSubdiv: 5,
       doubleSided: this.doubleSided,
       debugMesh: this.debugMesh,
+      chunkSize: this.chunkSize,
     });
     this.scene.add(this.worldGroup);
-    this.traceWorld = TriMeshTraceWorld.fromBsp(this.mapData, 4);
+    this.traceWorld = this.buildTraceWorld(this.mapData);
     this.player.setTraceWorld(this.traceWorld);
+  }
+
+  private buildTraceWorld(mapData: ReturnType<typeof BspParser.parse>): ITraceWorld {
+    try {
+      return BrushTraceWorld.fromBsp(mapData);
+    } catch {
+      return TriMeshTraceWorld.fromBsp(mapData, 4);
+    }
   }
 
   private spawnPlayer(entityWorld: EntityWorld): void {
@@ -297,7 +318,7 @@ export class Game {
         this.player.state.bboxMins,
         this.player.state.bboxMaxs
       );
-      const entered = this.triggerSystem.update(bounds);
+      const entered = this.triggerSystem.update(bounds, this.traceWorld);
       for (const trigger of entered) {
         switch (trigger.type) {
           case 'start':
