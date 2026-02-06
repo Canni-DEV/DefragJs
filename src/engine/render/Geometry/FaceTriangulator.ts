@@ -36,7 +36,7 @@ export class FaceTriangulator {
 
       switch (face.type) {
         case 1:
-          FaceTriangulator.addPolygonFace(batch, bsp.vertices, face);
+          FaceTriangulator.addMeshFace(batch, bsp.vertices, bsp.meshVerts, face);
           break;
         case 2:
           FaceTriangulator.addPatchFace(batch, bsp.vertices, face, patchSubdiv);
@@ -50,22 +50,6 @@ export class FaceTriangulator {
     }
 
     return Array.from(batches.values());
-  }
-
-  private static addPolygonFace(batch: GeometryBatch, vertices: BspVertex[], face: BspFace): void {
-    const base = batch.positions.length / 3;
-    for (let i = 0; i < face.numVertices; i += 1) {
-      const v = vertices[face.vertexIndex + i];
-      if (!v) {
-        continue;
-      }
-      batch.positions.push(v.position.x, v.position.y, v.position.z);
-      batch.normals.push(v.normal.x, v.normal.y, v.normal.z);
-      batch.uvs.push(v.texCoord.x, v.texCoord.y);
-    }
-    for (let i = 1; i < face.numVertices - 1; i += 1) {
-      batch.indices.push(base, base + i, base + i + 1);
-    }
   }
 
   private static addMeshFace(
@@ -85,16 +69,22 @@ export class FaceTriangulator {
       batch.uvs.push(v.texCoord.x, v.texCoord.y);
     }
 
-    const start = face.meshVertIndex;
-    const end = face.meshVertIndex + face.numMeshVerts;
-    for (let i = start; i < end; i += 3) {
-      const a = meshVerts[i];
-      const b = meshVerts[i + 1];
-      const c = meshVerts[i + 2];
-      if (a === undefined || b === undefined || c === undefined) {
-        continue;
+    if (face.numMeshVerts > 0) {
+      const start = face.meshVertIndex;
+      const end = face.meshVertIndex + face.numMeshVerts;
+      for (let i = start; i < end; i += 3) {
+        const a = meshVerts[i];
+        const b = meshVerts[i + 1];
+        const c = meshVerts[i + 2];
+        if (a === undefined || b === undefined || c === undefined) {
+          continue;
+        }
+        batch.indices.push(base + a, base + b, base + c);
       }
-      batch.indices.push(base + a, base + b, base + c);
+    } else {
+      for (let i = 1; i < face.numVertices - 1; i += 1) {
+        batch.indices.push(base, base + i, base + i + 1);
+      }
     }
   }
 

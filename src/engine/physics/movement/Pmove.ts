@@ -54,7 +54,8 @@ export class Pmove {
   private static computeWish(cmd: UserCmd, params: { wishSpeed: number }): { dir: Vec3; speed: number } {
     const yawRad = (cmd.viewYaw * Math.PI) / 180;
     tmpForward.set(Math.cos(yawRad), Math.sin(yawRad), 0);
-    tmpRight.set(-Math.sin(yawRad), Math.cos(yawRad), 0);
+    // Quake-style axes: +X forward, +Y left, +Z up -> right is -Y.
+    tmpRight.set(Math.sin(yawRad), -Math.cos(yawRad), 0);
 
     tmp1.set(0, 0, 0);
     tmp2.copy(tmpForward).scale(cmd.forwardmove);

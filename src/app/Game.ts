@@ -25,6 +25,7 @@ import { TimerSystem } from '../engine/gameplay/defrag/TimerSystem';
 import { TeleportSystem } from '../engine/gameplay/defrag/TeleportSystem';
 import { AABB } from '../engine/core/Math/AABB';
 import { Vec3 } from '../engine/core/Math/Vec3';
+import { clearDefaultPk3, getDefaultPk3, saveDefaultPk3 } from '../engine/io/pk3/Pk3Store';
 
 class NullTraceWorld implements ITraceWorld {
   traceBox(req: TraceBoxRequest): TraceResult {
@@ -47,6 +48,7 @@ export class Game {
 
   private readonly vfs = new VirtualFS();
   private mountedNames: string[] = [];
+  private mountedNameSet = new Set<string>();
   private mapData: ReturnType<typeof BspParser.parse> | null = null;
   private mapRenderer = new MapRenderer();
   private traceWorld: ITraceWorld = new NullTraceWorld();
@@ -64,6 +66,7 @@ export class Game {
   private readonly loop: GameLoop;
 
   private wireframe = false;
+  private filePanel: FileMountPanel | null = null;
 
   constructor(private readonly root: HTMLElement) {
     THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -91,7 +94,11 @@ export class Game {
     uiRoot.className = 'ui-root';
     this.root.appendChild(uiRoot);
 
-    const filePanel = new FileMountPanel((files) => void this.mountFiles(files));
+    const filePanel = new FileMountPanel(
+      (files) => void this.mountFiles(files),
+      (files) => void this.setDefaultPk3(files),
+      () => void this.clearDefaultPk3()
+    );
     const mapPanel = new MapSelectPanel((mapPath) => void this.loadMap(mapPath));
     const debugPanel = new DebugPanel({
       onWireframe: (enabled) => {
@@ -104,6 +111,7 @@ export class Game {
     });
 
     uiRoot.append(filePanel.element, mapPanel.element, debugPanel.element, this.hud.element);
+    this.filePanel = filePanel;
 
     this.loop = new GameLoop(new FixedTimestep(0.016), (dt) => this.update(dt), () => this.render());
 
@@ -118,6 +126,7 @@ export class Game {
   private onMapsUpdate: (maps: string[]) => void = () => {};
 
   async init(): Promise<void> {
+    await this.loadDefaultPk3FromCache();
     this.loop.start();
   }
 
@@ -135,9 +144,55 @@ export class Game {
       this.vfs.mount(archive);
       names.push(file.name);
     }
-    this.mountedNames = [...this.mountedNames, ...names];
-    this.onMountedUpdate(this.mountedNames);
+    for (const name of names) {
+      this.addMountedName(name);
+    }
     this.refreshMapList();
+  }
+
+  private async mountArchiveBuffer(buffer: ArrayBuffer, name: string, tag: string | null): Promise<void> {
+    const archive = Pk3Archive.fromArrayBuffer(buffer);
+    this.vfs.mount(archive);
+    const label = tag ? `${name} (${tag})` : name;
+    this.addMountedName(label);
+    this.refreshMapList();
+  }
+
+  private addMountedName(name: string): void {
+    if (this.mountedNameSet.has(name)) {
+      return;
+    }
+    this.mountedNameSet.add(name);
+    this.mountedNames = Array.from(this.mountedNameSet);
+    this.onMountedUpdate(this.mountedNames);
+  }
+
+  private async loadDefaultPk3FromCache(): Promise<void> {
+    const cached = await getDefaultPk3();
+    if (!cached) {
+      this.filePanel?.setDefaultName(null);
+      return;
+    }
+    this.filePanel?.setDefaultName(cached.name);
+    await this.mountArchiveBuffer(cached.buffer, cached.name, 'default');
+  }
+
+  private async setDefaultPk3(files: FileList): Promise<void> {
+    const file = files.item(0);
+    if (!file) {
+      return;
+    }
+    const saved = await saveDefaultPk3(file);
+    if (!saved) {
+      return;
+    }
+    this.filePanel?.setDefaultName(saved.name);
+    await this.mountArchiveBuffer(saved.buffer, saved.name, 'default');
+  }
+
+  private async clearDefaultPk3(): Promise<void> {
+    await clearDefaultPk3();
+    this.filePanel?.setDefaultName(null);
   }
 
   private refreshMapList(): void {
@@ -188,7 +243,26 @@ export class Game {
       entityWorld.findFirstByClass('info_player_team1') ||
       entityWorld.findFirstByClass('info_player_team2');
     const origin = parseVec3(spawn?.properties.origin) ?? new Vec3();
-    this.player.teleport(origin);
+    const spawnPos = origin.clone();
+    spawnPos.z += -this.player.state.bboxMins.z + 1;
+    this.player.teleport(spawnPos);
+    this.dropToGround();
+  }
+
+  private dropToGround(): void {
+    const start = this.player.state.position.clone();
+    const end = start.clone();
+    end.z -= 256;
+    const trace = this.traceWorld.traceBox({
+      start,
+      end,
+      mins: this.player.state.bboxMins,
+      maxs: this.player.state.bboxMaxs,
+      mask: Contents.SOLID,
+    });
+    if (!trace.startSolid) {
+      this.player.state.position.copy(trace.endPos);
+    }
   }
 
   private setPhysicsMode(modeId: 'VQ3' | 'CPM'): void {
