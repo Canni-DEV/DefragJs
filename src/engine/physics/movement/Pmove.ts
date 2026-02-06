@@ -15,6 +15,13 @@ const tmpPlane0 = new Vec3();
 const tmpPlane1 = new Vec3();
 const tmpPlane2 = new Vec3();
 const tmpPlane3 = new Vec3();
+const tmpStandMaxs = new Vec3();
+
+const STAND_MAX_Z = 32;
+const DUCK_MAX_Z = 16;
+const STAND_VIEW = 26;
+const DUCK_VIEW = 12;
+const MASK_PLAYER = Contents.SOLID | Contents.PLAYERCLIP;
 
 export class Pmove {
   static move(state: PlayerState, cmd: UserCmd, trace: ITraceWorld, mode: PhysicsMode): void {
@@ -25,8 +32,13 @@ export class Pmove {
 
     const params = mode.params;
 
+    Pmove.updateDuck(state, cmd, trace);
+
     const onGround = Pmove.groundTrace(state, trace);
     state.onGround = onGround;
+    if (state.onGround && state.velocity.z < 0) {
+      state.velocity.z = 0;
+    }
 
     if (onGround && (cmd.buttons & BUTTON_JUMP) !== 0) {
       state.velocity.z = params.jumpVelocity;
@@ -37,7 +49,7 @@ export class Pmove {
       Pmove.applyFriction(state, params, dt);
     }
 
-    const wish = Pmove.computeWish(cmd, params);
+    const wish = Pmove.computeWish(cmd, params, state.ducked);
     if (state.onGround) {
       Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.accelerate, dt);
     } else {
@@ -51,7 +63,11 @@ export class Pmove {
     Pmove.stepSlideMove(state, trace, params, dt);
   }
 
-  private static computeWish(cmd: UserCmd, params: { wishSpeed: number }): { dir: Vec3; speed: number } {
+  private static computeWish(
+    cmd: UserCmd,
+    params: { wishSpeed: number; duckScale: number },
+    ducked: boolean
+  ): { dir: Vec3; speed: number } {
     const yawRad = (cmd.viewYaw * Math.PI) / 180;
     tmpForward.set(Math.cos(yawRad), Math.sin(yawRad), 0);
     // Quake-style axes: +X forward, +Y left, +Z up -> right is -Y.
@@ -68,8 +84,39 @@ export class Pmove {
       tmp1.scale(1 / wishSpeedInput);
     }
 
-    const wishSpeed = Math.min(1, wishSpeedInput) * params.wishSpeed;
+    const baseSpeed = Math.min(1, wishSpeedInput) * params.wishSpeed;
+    const wishSpeed = ducked ? baseSpeed * params.duckScale : baseSpeed;
     return { dir: tmp1, speed: wishSpeed };
+  }
+
+  private static updateDuck(state: PlayerState, cmd: UserCmd, trace: ITraceWorld): void {
+    const wantsDuck = cmd.upmove < 0;
+    if (wantsDuck) {
+      if (!state.ducked) {
+        state.ducked = true;
+        state.bboxMaxs.z = DUCK_MAX_Z;
+        state.viewHeight = DUCK_VIEW;
+      }
+      return;
+    }
+
+    if (!state.ducked) {
+      return;
+    }
+
+    tmpStandMaxs.set(state.bboxMaxs.x, state.bboxMaxs.y, STAND_MAX_Z);
+    const standTrace = trace.traceBox({
+      start: state.position,
+      end: state.position,
+      mins: state.bboxMins,
+      maxs: tmpStandMaxs,
+      mask: MASK_PLAYER,
+    });
+    if (!standTrace.startSolid && !standTrace.allSolid) {
+      state.ducked = false;
+      state.bboxMaxs.z = STAND_MAX_Z;
+      state.viewHeight = STAND_VIEW;
+    }
   }
 
   private static applyFriction(state: PlayerState, params: { friction: number; stopSpeed: number }, dt: number): void {
@@ -112,7 +159,7 @@ export class Pmove {
       end: stepUp,
       mins: state.bboxMins,
       maxs: state.bboxMaxs,
-      mask: Contents.SOLID,
+      mask: MASK_PLAYER,
     });
     if (upTrace.fraction < 1 || upTrace.startSolid) {
       state.position.copy(startPos);
@@ -131,7 +178,7 @@ export class Pmove {
       end: downPos,
       mins: state.bboxMins,
       maxs: state.bboxMaxs,
-      mask: Contents.SOLID,
+      mask: MASK_PLAYER,
     });
     state.position.copy(downTrace.endPos);
   }
@@ -149,7 +196,7 @@ export class Pmove {
         end,
         mins: state.bboxMins,
         maxs: state.bboxMaxs,
-        mask: Contents.SOLID,
+        mask: MASK_PLAYER,
       });
 
       if (traceResult.fraction > 0) {
@@ -211,9 +258,9 @@ export class Pmove {
       end,
       mins: state.bboxMins,
       maxs: state.bboxMaxs,
-      mask: Contents.SOLID,
+      mask: MASK_PLAYER,
     });
-    if (result.fraction < 1 && result.planeNormal.z > 0.7) {
+    if ((result.fraction < 1 || result.startSolid) && result.planeNormal.z > 0.7) {
       state.position.copy(result.endPos);
       return true;
     }

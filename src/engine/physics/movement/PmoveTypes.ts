@@ -16,6 +16,7 @@ export type PlayerState = {
   position: Vec3;
   velocity: Vec3;
   onGround: boolean;
+  ducked: boolean;
   bboxMins: Vec3;
   bboxMaxs: Vec3;
   viewHeight: number;
@@ -31,4 +32,5 @@ export type PmoveParams = {
   stepSize: number;
   overclip: number;
   wishSpeed: number;
+  duckScale: number;
 };

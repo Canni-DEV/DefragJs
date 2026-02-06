@@ -12,5 +12,6 @@ export const CPM: PhysicsMode = {
     stepSize: 18,
     overclip: 1.001,
     wishSpeed: 320,
+    duckScale: 0.5,
   },
 };

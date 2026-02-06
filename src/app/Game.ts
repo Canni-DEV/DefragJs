@@ -253,6 +253,11 @@ export class Game {
         }
       });
     }
+    const rawDebug = true;
+    this.debugMesh = rawDebug === true || rawDebug === 'true';
+    if (this.debugMesh) {
+      console.log('[DefragJs] Mesh debug enabled', rawDebug);
+    }
     this.worldGroup = this.mapRenderer.build(this.mapData, {
       wireframe: this.wireframe,
       patchSubdiv: 5,
@@ -280,6 +285,10 @@ export class Game {
       entityWorld.findFirstByClass('info_player_team1') ||
       entityWorld.findFirstByClass('info_player_team2');
     const origin = parseVec3(spawn?.properties.origin) ?? new Vec3();
+    this.placePlayerAt(origin);
+  }
+
+  private placePlayerAt(origin: Vec3): void {
     const spawnPos = origin.clone();
     spawnPos.z += -this.player.state.bboxMins.z + 1;
     this.player.teleport(spawnPos);
@@ -295,7 +304,7 @@ export class Game {
       end,
       mins: this.player.state.bboxMins,
       maxs: this.player.state.bboxMaxs,
-      mask: Contents.SOLID,
+      mask: Contents.SOLID | Contents.PLAYERCLIP,
     });
     if (!trace.startSolid) {
       this.player.state.position.copy(trace.endPos);
@@ -333,7 +342,7 @@ export class Game {
           case 'teleport': {
             const target = this.teleportSystem?.resolveTarget(trigger.target);
             if (target) {
-              this.player.teleport(target);
+              this.placePlayerAt(target);
             }
             break;
           }

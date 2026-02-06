@@ -25,13 +25,12 @@ export class MapRenderer {
       debugMesh
         ? (report) => {
             const label = '[DefragJs] Mesh report';
-            console.groupCollapsed(label);
+            console.log(label);
             console.table(report.byType);
             console.log(report);
             if (report.invalidFaceSamples.length > 0) {
               console.log('Invalid face samples:', report.invalidFaceSamples);
             }
-            console.groupEnd();
           }
         : undefined
     );

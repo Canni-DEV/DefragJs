@@ -23,7 +23,7 @@ export class BspCollisionParser {
   }
 
   private static readPlanes(raw: Uint8Array): BspPlane[] {
-    const stride = 20;
+    const stride = 16;
     invariant(raw.byteLength % stride === 0, 'Plane lump length invalid');
     const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
     const count = raw.byteLength / stride;
@@ -36,8 +36,7 @@ export class BspCollisionParser {
         view.getFloat32(offset + 8, true)
       );
       const dist = view.getFloat32(offset + 12, true);
-      const type = view.getInt32(offset + 16, true);
-      planes.push({ normal, dist, type });
+      planes.push({ normal, dist, type: 0 });
       offset += stride;
     }
     return planes;
