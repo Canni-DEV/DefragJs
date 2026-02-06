@@ -4,7 +4,6 @@ import { EntityWorld } from '../entities/EntityWorld';
 import { Q3Entity, TriggerType } from '../entities/EntityTypes';
 import { BspModel } from '../../io/bsp/BspTypes';
 import { ITraceWorld } from '../../physics/ITraceWorld';
-import { Contents } from '../../physics/TraceTypes';
 
 export type TriggerVolume = {
   type: TriggerType;
@@ -32,14 +31,7 @@ export class TriggerSystem {
       if (!trigger) {
         continue;
       }
-      let isInside = trigger.bounds.intersects(playerBounds);
-      if (isInside && trigger.source === 'brushModel' && traceWorld?.pointContents) {
-        const center = playerBounds.mins.clone().add(playerBounds.maxs).scale(0.5);
-        const contents = traceWorld.pointContents(center);
-        if ((contents & Contents.TRIGGER) === 0) {
-          isInside = false;
-        }
-      }
+      const isInside = trigger.bounds.intersects(playerBounds);
       const wasInside = this.active.has(i);
       if (isInside && !wasInside) {
         entered.push(trigger);
