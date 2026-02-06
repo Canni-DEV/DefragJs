@@ -1,6 +1,7 @@
 export type DebugPanelOptions = {
   onWireframe: (enabled: boolean) => void;
   onPhysicsMode: (mode: 'VQ3' | 'CPM') => void;
+  onDoubleSided: (enabled: boolean) => void;
 };
 
 export class DebugPanel {
@@ -36,7 +37,16 @@ export class DebugPanel {
       options.onPhysicsMode(modeSelect.value as 'VQ3' | 'CPM');
     });
 
-    stack.append(wireLabel, wireToggle, modeLabel, modeSelect);
+    const doubleLabel = document.createElement('label');
+    doubleLabel.textContent = 'Double Sided';
+    const doubleToggle = document.createElement('input');
+    doubleToggle.type = 'checkbox';
+    doubleToggle.checked = true;
+    doubleToggle.addEventListener('change', () => {
+      options.onDoubleSided(doubleToggle.checked);
+    });
+
+    stack.append(wireLabel, wireToggle, modeLabel, modeSelect, doubleLabel, doubleToggle);
     this.element.append(stack);
   }
 }

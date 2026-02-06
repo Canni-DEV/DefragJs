@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 
 export class MaterialFactory {
-  static create(textureName: string, wireframe: boolean): THREE.MeshStandardMaterial {
+  static create(textureName: string, wireframe: boolean, doubleSided: boolean): THREE.MeshStandardMaterial {
     const color = MaterialFactory.colorFromName(textureName);
     return new THREE.MeshStandardMaterial({
       color,
       roughness: 0.8,
       metalness: 0.05,
       wireframe,
+      side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     });
   }
 

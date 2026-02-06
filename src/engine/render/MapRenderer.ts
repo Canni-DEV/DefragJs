@@ -6,14 +6,33 @@ import { MaterialRegistry } from './Materials/MaterialRegistry';
 export type MapRenderOptions = {
   wireframe?: boolean;
   patchSubdiv?: number;
+  doubleSided?: boolean;
+  debugMesh?: boolean;
 };
 
 export class MapRenderer {
   build(bsp: BspData, options: MapRenderOptions = {}): THREE.Group {
     const wireframe = options.wireframe ?? false;
     const patchSubdiv = options.patchSubdiv ?? 5;
+    const doubleSided = options.doubleSided ?? false;
+    const debugMesh = options.debugMesh ?? false;
 
-    const batches = FaceTriangulator.buildBatches(bsp, patchSubdiv);
+    const batches = FaceTriangulator.buildBatches(
+      bsp,
+      patchSubdiv,
+      debugMesh
+        ? (report) => {
+            const label = '[DefragJs] Mesh report';
+            console.groupCollapsed(label);
+            console.table(report.byType);
+            console.log(report);
+            if (report.invalidFaceSamples.length > 0) {
+              console.log('Invalid face samples:', report.invalidFaceSamples);
+            }
+            console.groupEnd();
+          }
+        : undefined
+    );
     const registry = new MaterialRegistry();
 
     const positions: number[] = [];
@@ -35,7 +54,7 @@ export class MapRenderer {
       }
 
       const indexCount = indices.length - indexStart;
-      const material = registry.getOrCreate(batch.textureName, wireframe);
+      const material = registry.getOrCreate(batch.textureName, wireframe, doubleSided);
       groupInfo.push({ start: indexStart, count: indexCount, material });
     }
 

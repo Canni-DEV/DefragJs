@@ -66,6 +66,8 @@ export class Game {
   private readonly loop: GameLoop;
 
   private wireframe = false;
+  private doubleSided = true;
+  private debugMesh = false;
   private filePanel: FileMountPanel | null = null;
 
   constructor(private readonly root: HTMLElement) {
@@ -100,9 +102,18 @@ export class Game {
       () => void this.clearDefaultPk3()
     );
     const mapPanel = new MapSelectPanel((mapPath) => void this.loadMap(mapPath));
+    this.debugMesh =
+      (window as Window & { DEFRAJS_DEBUG_MESH?: boolean }).DEFRAJS_DEBUG_MESH === true;
+
     const debugPanel = new DebugPanel({
       onWireframe: (enabled) => {
         this.wireframe = enabled;
+        if (this.mapData) {
+          this.buildMap();
+        }
+      },
+      onDoubleSided: (enabled) => {
+        this.doubleSided = enabled;
         if (this.mapData) {
           this.buildMap();
         }
@@ -230,7 +241,12 @@ export class Game {
         }
       });
     }
-    this.worldGroup = this.mapRenderer.build(this.mapData, { wireframe: this.wireframe, patchSubdiv: 5 });
+    this.worldGroup = this.mapRenderer.build(this.mapData, {
+      wireframe: this.wireframe,
+      patchSubdiv: 5,
+      doubleSided: this.doubleSided,
+      debugMesh: this.debugMesh,
+    });
     this.scene.add(this.worldGroup);
     this.traceWorld = TriMeshTraceWorld.fromBsp(this.mapData, 4);
     this.player.setTraceWorld(this.traceWorld);
