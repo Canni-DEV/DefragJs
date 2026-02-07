@@ -466,7 +466,7 @@ class InputState {
     const moveScale = 127;
     const forward = this.keyAxis('KeyW', 'KeyS') * moveScale;
     const right = this.keyAxis('KeyD', 'KeyA') * moveScale;
-    const up = this.keyAxis('Space', 'ControlLeft') * moveScale;
+    const up = this.keys.has('ControlLeft') ? -moveScale : 0;
 
     const buttons = this.keys.has('Space') ? BUTTON_JUMP : 0;
 

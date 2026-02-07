@@ -55,6 +55,16 @@ export class Pmove {
       return;
     }
 
+    Pmove.pmoveSingle(state, cmd, trace, mode, dt);
+  }
+
+  private static pmoveSingle(
+    state: PlayerState,
+    cmd: UserCmd,
+    trace: ITraceWorld,
+    mode: PhysicsMode,
+    dt: number
+  ): void {
     const params = mode.params;
 
     Pmove.updateDuck(state, cmd, trace);
@@ -115,10 +125,7 @@ export class Pmove {
       return { dir: tmp1, speed: 0 };
     }
 
-    const total = Math.sqrt(
-      forwardMove * forwardMove + rightMove * rightMove + upMove * upMove
-    );
-    const cmdScale = (params.wishSpeed * maxMove) / (CMD_SCALE * total);
+    const cmdScale = Pmove.cmdScale(forwardMove, rightMove, upMove, maxMove, params.wishSpeed);
 
     tmp1.set(0, 0, 0);
     tmp2.copy(tmpForward).scale(forwardMove * cmdScale);
@@ -135,6 +142,25 @@ export class Pmove {
       wishSpeed *= params.duckScale;
     }
     return { dir: tmp1, speed: wishSpeed };
+  }
+
+  private static cmdScale(
+    forwardMove: number,
+    rightMove: number,
+    upMove: number,
+    maxMove: number,
+    wishSpeed: number
+  ): number {
+    if (maxMove <= 0) {
+      return 0;
+    }
+    const total = Math.sqrt(
+      forwardMove * forwardMove + rightMove * rightMove + upMove * upMove
+    );
+    if (total <= 0) {
+      return 0;
+    }
+    return (wishSpeed * maxMove) / (CMD_SCALE * total);
   }
 
   private static correctAllSolid(state: PlayerState, trace: ITraceWorld): void {
