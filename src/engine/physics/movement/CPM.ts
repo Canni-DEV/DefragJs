@@ -8,7 +8,7 @@ export const CPM: PhysicsMode = {
     accelerate: 15,
     airAccelerate: 1,
     airSpeedCap: 0,
-    airControl: 150,
+    airControl: 0.1,
     strafeAccelerate: 70,
     gravity: 800,
     jumpVelocity: 270,
