@@ -2,6 +2,8 @@ import { Vec3 } from '../../core/Math/Vec3';
 
 export const BUTTON_JUMP = 1 << 1;
 
+export type PmType = 'NORMAL' | 'SPECTATOR' | 'NOCLIP' | 'DEAD' | 'FREEZE';
+
 export type UserCmd = {
   forwardmove: number;
   rightmove: number;
@@ -15,9 +17,13 @@ export type UserCmd = {
 export type PlayerState = {
   position: Vec3;
   velocity: Vec3;
+  commandTime: number;
+  pmType: PmType;
+  pmFlags: number;
   onGround: boolean;
   groundNormal: Vec3;
-  jumpHeld: boolean;
+  waterLevel: 0 | 1 | 2 | 3;
+  waterType: number;
   ducked: boolean;
   bboxMins: Vec3;
   bboxMaxs: Vec3;

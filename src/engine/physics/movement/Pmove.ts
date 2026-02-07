@@ -34,9 +34,17 @@ const DUCK_VIEW = 12;
 const MIN_WALK_NORMAL = 0.7;
 const GROUND_EPS = 0.25;
 const MASK_PLAYER = Contents.SOLID | Contents.PLAYERCLIP;
+const MASK_WATER = Contents.WATER | Contents.LAVA | Contents.SLIME;
 const CLIP_PLANES = [tmpPlane0, tmpPlane1, tmpPlane2, tmpPlane3, tmpPlane4];
 const CMD_SCALE = 127;
 const AIR_CONTROL_SPEED_SCALE = 32;
+const PMF_JUMP_HELD = 1 << 0;
+const PMOVE_MAX_MSEC = 66;
+const PMOVE_CLAMP_MSEC = 200;
+const PM_SWIM_SCALE = 0.5;
+const PM_WATER_ACCELERATE = 4;
+const PM_WATER_FRICTION = 1;
+const PM_WATER_SINK_SPEED = -60;
 const STUCK_OFFSETS: Vec3[] = (() => {
   const offsets: Vec3[] = [];
   const values = [-1, 0, 1];
@@ -52,12 +60,20 @@ const STUCK_OFFSETS: Vec3[] = (() => {
 
 export class Pmove {
   static move(state: PlayerState, cmd: UserCmd, trace: ITraceWorld, mode: PhysicsMode): void {
-    const dt = Math.max(0, cmd.msec / 1000);
-    if (dt <= 0) {
-      return;
+    let remainingMsec = Math.floor(cmd.msec);
+    if (remainingMsec < 1) {
+      remainingMsec = 1;
+    } else if (remainingMsec > PMOVE_CLAMP_MSEC) {
+      remainingMsec = PMOVE_CLAMP_MSEC;
     }
 
-    Pmove.pmoveSingle(state, cmd, trace, mode, dt);
+    while (remainingMsec > 0) {
+      const stepMsec = Math.min(remainingMsec, PMOVE_MAX_MSEC);
+      const dt = stepMsec / 1000;
+      state.commandTime += stepMsec;
+      Pmove.pmoveSingle(state, cmd, trace, mode, dt);
+      remainingMsec -= stepMsec;
+    }
   }
 
   private static pmoveSingle(
@@ -67,71 +83,117 @@ export class Pmove {
     mode: PhysicsMode,
     dt: number
   ): void {
+    if (dt <= 0) {
+      return;
+    }
     const params = mode.params;
+    const jumpPressed = (cmd.buttons & BUTTON_JUMP) !== 0;
+
+    if (!jumpPressed) {
+      state.pmFlags &= ~PMF_JUMP_HELD;
+    }
+
+    if (state.pmType === 'FREEZE') {
+      return;
+    }
+
+    Pmove.setViewAxes(cmd.viewYaw);
+
+    if (state.pmType === 'NOCLIP' || state.pmType === 'SPECTATOR') {
+      const wish = Pmove.computeWish(
+        cmd.forwardmove,
+        cmd.rightmove,
+        cmd.upmove,
+        params,
+        state.ducked,
+        Pmove.computeAirAxes(tmpWishForward),
+        Pmove.computeAirAxes(tmpWishRight, true)
+      );
+      Pmove.noclipMove(state, wish, params, dt);
+      Pmove.setWaterLevel(state, trace);
+      return;
+    }
 
     Pmove.updateDuck(state, cmd, trace);
     Pmove.correctAllSolid(state, trace);
+    Pmove.setWaterLevel(state, trace);
 
     const ground = Pmove.groundTrace(state, trace);
     state.onGround = ground !== null;
-    Pmove.setViewAxes(cmd.viewYaw);
-    const jumpPressed = (cmd.buttons & BUTTON_JUMP) !== 0;
-    if (!jumpPressed) {
-      state.jumpHeld = false;
-    }
 
-    if (state.onGround && jumpPressed && !state.jumpHeld) {
+    if (
+      state.pmType === 'NORMAL' &&
+      state.onGround &&
+      jumpPressed &&
+      (state.pmFlags & PMF_JUMP_HELD) === 0
+    ) {
       if (mode.id === 'CPM' && params.rampBoost > 0 && state.groundNormal.z < 0.999) {
         state.velocity.z = params.jumpVelocity + state.velocity.z * params.rampBoost;
       } else {
         state.velocity.z = params.jumpVelocity;
       }
-      state.jumpHeld = true;
+      state.pmFlags |= PMF_JUMP_HELD;
       state.onGround = false;
     }
 
-    const wish = state.onGround
-      ? Pmove.computeWish(
-          cmd,
-          params,
-          state.ducked,
-          Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishForward),
-          Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishRight, true)
-        )
-      : Pmove.computeWish(
-          cmd,
-          params,
-          state.ducked,
-          Pmove.computeAirAxes(tmpWishForward),
-          Pmove.computeAirAxes(tmpWishRight, true)
-        );
+    const forwardMove = state.pmType === 'DEAD' ? 0 : cmd.forwardmove;
+    const rightMove = state.pmType === 'DEAD' ? 0 : cmd.rightmove;
+    const upMove = state.pmType === 'DEAD' ? 0 : cmd.upmove;
 
-    if (state.onGround) {
-      Pmove.applyFriction(state, params, dt);
-      Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.accelerate, dt);
-    } else if (mode.id === 'CPM') {
-      Pmove.airMoveCPM(state, cmd, wish, params, dt);
+    if (state.waterLevel > 1) {
+      Pmove.waterMove(state, trace, forwardMove, rightMove, upMove, params, dt);
     } else {
-      Pmove.airMoveVQ3(state, wish, params, dt);
+      const wish = state.onGround
+        ? Pmove.computeWish(
+            forwardMove,
+            rightMove,
+            upMove,
+            params,
+            state.ducked,
+            Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishForward),
+            Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishRight, true)
+          )
+        : Pmove.computeWish(
+            forwardMove,
+            rightMove,
+            upMove,
+            params,
+            state.ducked,
+            Pmove.computeAirAxes(tmpWishForward),
+            Pmove.computeAirAxes(tmpWishRight, true)
+          );
+
+      Pmove.applyFriction(state, params, dt, state.onGround, state.waterLevel);
+
+      if (state.onGround) {
+        Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.accelerate, dt);
+      } else if (mode.id === 'CPM') {
+        Pmove.airMoveCPM(state, cmd, wish, params, dt);
+      } else {
+        Pmove.airMoveVQ3(state, wish, params, dt);
+      }
+
+      Pmove.stepSlideMove(state, trace, params, dt, state.onGround ? 0 : params.gravity);
     }
 
-    Pmove.stepSlideMove(state, trace, params, dt, state.onGround ? 0 : params.gravity);
-
     const postGround = Pmove.groundTrace(state, trace);
-    state.onGround = postGround !== null && state.velocity.z <= 0;
+    if (postGround !== null) {
+      state.onGround = state.velocity.z <= 0;
+    } else {
+      state.onGround = false;
+    }
+    Pmove.setWaterLevel(state, trace);
   }
 
   private static computeWish(
-    cmd: UserCmd,
+    forwardMove: number,
+    rightMove: number,
+    upMove: number,
     params: { wishSpeed: number; duckScale: number },
     ducked: boolean,
     forwardAxis: Vec3,
     rightAxis: Vec3
   ): { dir: Vec3; speed: number } {
-    const forwardMove = cmd.forwardmove;
-    const rightMove = cmd.rightmove;
-    const upMove = cmd.upmove;
-
     const maxMove = Math.max(Math.abs(forwardMove), Math.abs(rightMove), Math.abs(upMove));
     if (maxMove <= 0) {
       tmp1.set(0, 0, 0);
@@ -176,6 +238,117 @@ export class Pmove {
     out.z = 0;
     out.normalize();
     return out;
+  }
+
+  private static setWaterLevel(state: PlayerState, trace: ITraceWorld): void {
+    state.waterLevel = 0;
+    state.waterType = Contents.EMPTY;
+    if (!trace.pointContents) {
+      return;
+    }
+
+    const p = tmp1.copy(state.position);
+    p.z += state.bboxMins.z + 1;
+    let contents = trace.pointContents(p);
+    if ((contents & MASK_WATER) === 0) {
+      return;
+    }
+
+    state.waterType = contents;
+    state.waterLevel = 1;
+
+    const sample2 = state.viewHeight - state.bboxMins.z;
+    const sample1 = sample2 * 0.5;
+
+    p.z = state.position.z + state.bboxMins.z + sample1;
+    contents = trace.pointContents(p);
+    if ((contents & MASK_WATER) !== 0) {
+      state.waterLevel = 2;
+      p.z = state.position.z + state.bboxMins.z + sample2;
+      contents = trace.pointContents(p);
+      if ((contents & MASK_WATER) !== 0) {
+        state.waterLevel = 3;
+      }
+    }
+  }
+
+  private static waterMove(
+    state: PlayerState,
+    trace: ITraceWorld,
+    forwardMove: number,
+    rightMove: number,
+    upMove: number,
+    params: {
+      friction: number;
+      stopSpeed: number;
+      wishSpeed: number;
+      duckScale: number;
+      overclip: number;
+    },
+    dt: number
+  ): void {
+    Pmove.applyFriction(state, params, dt, state.onGround, state.waterLevel);
+
+    let wish = Pmove.computeWish(
+      forwardMove,
+      rightMove,
+      upMove,
+      params,
+      state.ducked,
+      Pmove.computeAirAxes(tmpWishForward),
+      Pmove.computeAirAxes(tmpWishRight, true)
+    );
+
+    if (wish.speed <= 0) {
+      tmp2.set(0, 0, PM_WATER_SINK_SPEED);
+      const sinkSpeed = tmp2.length();
+      tmp2.scale(1 / sinkSpeed);
+      wish = { dir: tmp2, speed: sinkSpeed };
+    }
+
+    const maxWaterSpeed = params.wishSpeed * PM_SWIM_SCALE;
+    const wishSpeed = Math.min(wish.speed, maxWaterSpeed);
+    Pmove.accelerate(state.velocity, wish.dir, wishSpeed, PM_WATER_ACCELERATE, dt);
+
+    if (state.onGround && state.velocity.dot(state.groundNormal) < 0) {
+      const velMag = state.velocity.length();
+      Pmove.clipVelocity(state.velocity, state.groundNormal, params.overclip);
+      state.velocity.normalize().scale(velMag);
+    }
+
+    Pmove.slideMove(
+      state,
+      trace,
+      params.overclip,
+      0,
+      dt,
+      state.onGround ? state.groundNormal : null
+    );
+  }
+
+  private static noclipMove(
+    state: PlayerState,
+    wish: { dir: Vec3; speed: number },
+    params: { friction: number; stopSpeed: number; accelerate: number },
+    dt: number
+  ): void {
+    const speed = state.velocity.length();
+    if (speed > 0) {
+      const friction = params.friction * 1.5;
+      const drop = Math.max(speed, params.stopSpeed) * friction * dt;
+      const newSpeed = Math.max(0, speed - drop);
+      if (newSpeed <= 0) {
+        state.velocity.set(0, 0, 0);
+      } else {
+        state.velocity.scale(newSpeed / speed);
+      }
+    }
+
+    Pmove.accelerate(state.velocity, wish.dir, wish.speed, params.accelerate, dt);
+    state.position.x += state.velocity.x * dt;
+    state.position.y += state.velocity.y * dt;
+    state.position.z += state.velocity.z * dt;
+    state.onGround = false;
   }
 
   private static cmdScale(
@@ -258,16 +431,40 @@ export class Pmove {
     }
   }
 
-  private static applyFriction(state: PlayerState, params: { friction: number; stopSpeed: number }, dt: number): void {
-    const speed = Math.sqrt(state.velocity.x * state.velocity.x + state.velocity.y * state.velocity.y);
+  private static applyFriction(
+    state: PlayerState,
+    params: { friction: number; stopSpeed: number },
+    dt: number,
+    walking: boolean,
+    waterLevel: 0 | 1 | 2 | 3
+  ): void {
+    const speed = walking
+      ? Math.hypot(state.velocity.x, state.velocity.y)
+      : state.velocity.length();
     if (speed < 1e-3) {
+      if (walking) {
+        state.velocity.x = 0;
+        state.velocity.y = 0;
+      }
       return;
     }
-    const drop = Math.max(speed, params.stopSpeed) * params.friction * dt;
+
+    let drop = 0;
+    if (walking && waterLevel <= 1) {
+      drop += Math.max(speed, params.stopSpeed) * params.friction * dt;
+    }
+    if (waterLevel > 0) {
+      drop += speed * PM_WATER_FRICTION * waterLevel * dt;
+    }
+    if (drop <= 0) {
+      return;
+    }
+
     const newSpeed = Math.max(0, speed - drop);
     const scale = newSpeed / speed;
     state.velocity.x *= scale;
     state.velocity.y *= scale;
+    state.velocity.z *= scale;
   }
 
   private static accelerate(vel: Vec3, wishDir: Vec3, wishSpeed: number, accel: number, dt: number): void {

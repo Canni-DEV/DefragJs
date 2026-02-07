@@ -15,9 +15,13 @@ export class PlayerController {
     this.state = {
       position: new Vec3(),
       velocity: new Vec3(),
+      commandTime: 0,
+      pmType: 'NORMAL',
+      pmFlags: 0,
       onGround: false,
       groundNormal: new Vec3(0, 0, 1),
-      jumpHeld: false,
+      waterLevel: 0,
+      waterType: 0,
       ducked: false,
       bboxMins: new Vec3(-15, -15, -24),
       bboxMaxs: new Vec3(15, 15, 32),
@@ -36,7 +40,7 @@ export class PlayerController {
   teleport(position: Vec3): void {
     this.state.position.copy(position);
     this.state.velocity.set(0, 0, 0);
-    this.state.jumpHeld = false;
+    this.state.pmFlags = 0;
   }
 
   step(cmd: UserCmd): void {
