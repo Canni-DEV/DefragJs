@@ -17,6 +17,7 @@ export type PlayerState = {
   velocity: Vec3;
   onGround: boolean;
   groundNormal: Vec3;
+  jumpHeld: boolean;
   ducked: boolean;
   bboxMins: Vec3;
   bboxMaxs: Vec3;

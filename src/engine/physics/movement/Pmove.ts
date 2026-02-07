@@ -24,6 +24,8 @@ const tmpPlane3 = new Vec3();
 const tmpPlane4 = new Vec3();
 const tmpGround = new Vec3();
 const tmpStandMaxs = new Vec3();
+const tmpWishForward = new Vec3();
+const tmpWishRight = new Vec3();
 
 const STAND_MAX_Z = 32;
 const DUCK_MAX_Z = 16;
@@ -72,20 +74,37 @@ export class Pmove {
 
     const ground = Pmove.groundTrace(state, trace);
     state.onGround = ground !== null;
-    if (state.onGround && state.velocity.z < 0) {
-      state.velocity.z = 0;
+    Pmove.setViewAxes(cmd.viewYaw);
+    const jumpPressed = (cmd.buttons & BUTTON_JUMP) !== 0;
+    if (!jumpPressed) {
+      state.jumpHeld = false;
     }
 
-    const wish = Pmove.computeWish(cmd, params, state.ducked);
-
-    if (state.onGround && (cmd.buttons & BUTTON_JUMP) !== 0) {
+    if (state.onGround && jumpPressed && !state.jumpHeld) {
       if (mode.id === 'CPM' && params.rampBoost > 0 && state.groundNormal.z < 0.999) {
         state.velocity.z = params.jumpVelocity + state.velocity.z * params.rampBoost;
       } else {
         state.velocity.z = params.jumpVelocity;
       }
+      state.jumpHeld = true;
       state.onGround = false;
     }
+
+    const wish = state.onGround
+      ? Pmove.computeWish(
+          cmd,
+          params,
+          state.ducked,
+          Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishForward),
+          Pmove.computeGroundAxes(state.groundNormal, params.overclip, tmpWishRight, true)
+        )
+      : Pmove.computeWish(
+          cmd,
+          params,
+          state.ducked,
+          Pmove.computeAirAxes(tmpWishForward),
+          Pmove.computeAirAxes(tmpWishRight, true)
+        );
 
     if (state.onGround) {
       Pmove.applyFriction(state, params, dt);
@@ -96,25 +115,19 @@ export class Pmove {
       Pmove.airMoveVQ3(state, wish, params, dt);
     }
 
-    Pmove.stepSlideMove(state, trace, params, dt);
+    Pmove.stepSlideMove(state, trace, params, dt, state.onGround ? 0 : params.gravity);
 
     const postGround = Pmove.groundTrace(state, trace);
     state.onGround = postGround !== null && state.velocity.z <= 0;
-    if (state.onGround && state.velocity.z < 0) {
-      state.velocity.z = 0;
-    }
   }
 
   private static computeWish(
     cmd: UserCmd,
     params: { wishSpeed: number; duckScale: number },
-    ducked: boolean
+    ducked: boolean,
+    forwardAxis: Vec3,
+    rightAxis: Vec3
   ): { dir: Vec3; speed: number } {
-    const yawRad = (cmd.viewYaw * Math.PI) / 180;
-    tmpForward.set(Math.cos(yawRad), Math.sin(yawRad), 0);
-    // Quake-style axes: +X forward, +Y left, +Z up -> right is -Y.
-    tmpRight.set(Math.sin(yawRad), -Math.cos(yawRad), 0);
-
     const forwardMove = cmd.forwardmove;
     const rightMove = cmd.rightmove;
     const upMove = cmd.upmove;
@@ -128,8 +141,8 @@ export class Pmove {
     const cmdScale = Pmove.cmdScale(forwardMove, rightMove, upMove, maxMove, params.wishSpeed);
 
     tmp1.set(0, 0, 0);
-    tmp2.copy(tmpForward).scale(forwardMove * cmdScale);
-    tmp3.copy(tmpRight).scale(rightMove * cmdScale);
+    tmp2.copy(forwardAxis).scale(forwardMove * cmdScale);
+    tmp3.copy(rightAxis).scale(rightMove * cmdScale);
     tmp1.add(tmp2);
     tmp1.add(tmp3);
 
@@ -142,6 +155,27 @@ export class Pmove {
       wishSpeed *= params.duckScale;
     }
     return { dir: tmp1, speed: wishSpeed };
+  }
+
+  private static setViewAxes(viewYaw: number): void {
+    const yawRad = (viewYaw * Math.PI) / 180;
+    tmpForward.set(Math.cos(yawRad), Math.sin(yawRad), 0);
+    // Quake-style axes: +X forward, +Y left, +Z up -> right is -Y.
+    tmpRight.set(Math.sin(yawRad), -Math.cos(yawRad), 0);
+  }
+
+  private static computeGroundAxes(normal: Vec3, overclip: number, out: Vec3, right = false): Vec3 {
+    out.copy(right ? tmpRight : tmpForward);
+    Pmove.clipVelocity(out, normal, overclip);
+    out.normalize();
+    return out;
+  }
+
+  private static computeAirAxes(out: Vec3, right = false): Vec3 {
+    out.copy(right ? tmpRight : tmpForward);
+    out.z = 0;
+    out.normalize();
+    return out;
   }
 
   private static cmdScale(
@@ -323,14 +357,15 @@ export class Pmove {
   private static stepSlideMove(
     state: PlayerState,
     trace: ITraceWorld,
-    params: { stepSize: number; overclip: number; gravity: number },
-    dt: number
+    params: { stepSize: number; overclip: number },
+    dt: number,
+    gravity: number
   ): void {
     const startPos = tmp4.copy(state.position);
     const startVel = tmp5.copy(state.velocity);
     const groundNormal = state.onGround ? tmpGround.copy(state.groundNormal) : null;
 
-    const blocked = Pmove.slideMove(state, trace, params.overclip, params.gravity, dt, groundNormal);
+    const blocked = Pmove.slideMove(state, trace, params.overclip, gravity, dt, groundNormal);
     if (!blocked) {
       return;
     }
@@ -356,7 +391,7 @@ export class Pmove {
 
     state.position.copy(upTrace.endPos);
     state.velocity.copy(startVel);
-    Pmove.slideMove(state, trace, params.overclip, params.gravity, dt, groundNormal);
+    Pmove.slideMove(state, trace, params.overclip, gravity, dt, groundNormal);
 
     const downPos = tmp3.copy(state.position);
     downPos.z -= stepSize;
